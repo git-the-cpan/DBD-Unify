@@ -39,12 +39,12 @@ sub connect_db ($)
 	print "Testing: DBI->connect ('$dbname'):\n";
 
     my $dbh = DBI->connect ($dbname, undef, "", {
-	RaiseError => 1,
-	PrintError => 1,
-	AutoCommit => 0,
-	ScanLevel  => 7,
-	ChopBlanks => 1,
-	DBDverbose => $verbose,
+	RaiseError  => 1,
+	PrintError  => 1,
+	AutoCommit  => 0,
+	ScanLevel   => 7,
+	ChopBlanks  => 1,
+	uni_verbose => $verbose,
 	});
     unless ($dbh) {
         print "1..0\n";
@@ -69,7 +69,7 @@ $t = 1;
     $sts->finish;
     }
 
-#$dbh->{DBDverbose} = 999;
+#$dbh->{uni_verbose} = 999;
 {   my $sts = $dbh->prepare (q;
 	select COLCODE
 	from   SYS.COLTYPE

@@ -3,6 +3,7 @@
 require 5.004;
 
 use strict;
+use Cwd qw( cwd abs_path );
 
 use ExtUtils::MakeMaker;
 
@@ -15,9 +16,10 @@ $^O =~ m/^(?: VMS | MsWin32 | cygwin )$/x and
     die "OS type $^O is not (yet) supported";
 
 use vars qw($UNIFY $UNITOP $ULIBS);
+
 CheckUnify ();
 
-WriteMakefile (
+my $rv = WriteMakefile (
     NAME          =>   "DBD::Unify",
     DISTNAME      =>   "DBD-Unify",
     VERSION_FROM  =>   "Unify.pm",
@@ -45,6 +47,7 @@ WriteMakefile (
 		       },
 
     dynamic_lib   => { OTHERLDFLAGS => " $ULIBS \$(COMPOBJS) " .
+					    "-L$UNIFY " .
 					    { hpux	=> "",
 					      aix	=> "-lm",
 					      dec_osf	=> "-lxnet",
@@ -57,28 +60,34 @@ WriteMakefile (
 		       },
     );
 
+if ($rv && -f "ulib/libU2000c.sl") {
+    open my $mf, "<Makefile" or die "Cannot modify Makefile: $!\n";
+    my @MF = <$mf>;
+    close $mf;
+    s/\bPERL_DL_NONLAZY=\d+\s+// for @MF;
+    open  $mf, ">Makefile" or die "Cannot modify Makefile: $!\n";
+    print $mf @MF;
+    close $mf;
+    }
+
 sub CheckUnify
 {
     exists $ENV{UNIFY}	or die "\$UNIFY not set";
     exists $ENV{DBPATH}	or die "\$DBPATH not set";
 
-    $UNIFY  = $ENV{UNIFY};
+    $UNIFY  = abs_path $ENV{UNIFY};
 
     -d $UNIFY		or die "\$UNIFY is not a valid directory";
     -d $ENV{DBPATH}	or die "\$DBPATH is not a valid directory";
 
-    $UNITOP = $UNIFY;
-    { chomp (my $cwd = `pwd`);
-      chdir $UNIFY	or die "\$UNIFY cannot be accessed: $!";
-      chomp ($UNIFY  = `pwd`);	# Remove symlinks and relatives like /../
-      chdir "..";
-      chomp ($UNITOP = `pwd`);
-      chdir $cwd;
-      }
+    $UNITOP = abs_path "$UNIFY/..";
+    my $cwd = cwd;
+
+    my @sqlv = `SQL -version`;
 
     unlink "ulib";
     symlink $UNIFY, "./ulib";
-    # Checked for A/SQL DS 6.3 AB & 8.1CC
+    # Checked for A/SQL DS 6.3 AB and beyond
     my @ulibs = qw(
 	ACCELL.a
 	S2000e.a S2000c.a
@@ -90,7 +99,43 @@ sub CheckUnify
     print "Do you *need* networked databases? [y/N] > N\b";
     scalar <STDIN> =~ m/^\s*[yYjJ]/ or
 	@ulibs = map { s/0u\.a/0ul.a/; $_ } grep m/[ASU]/, @ulibs;
-    $ULIBS = join " ulib/" => "", @ulibs;
+
+    my ($rev) = ("@sqlv" =~ m/Revision:\s+(\d[.\d]*)/);
+    if ($^O eq "hpux" && $rev >= 8.2 && !-f "ulib/libU2000c.sl" && -w $UNIFY) {
+	print STDERR
+	    "Building for rev $rev on HP-UX would support Shared Libraries\n",
+	    " but I don't see them (yet) in your \$UNIFY.\n",
+	    "Shall I try to use Shared Objects? [Y/n] > Y\b";
+	my $answer = <STDIN>;
+	$answer =~ m/^\s*[Qq]/ and exit;
+	unless ($answer =~ m/^\s*[NnFf]/) {
+	    chdir $UNIFY or die "Cannot chdir to $UNIFY: $!\n";
+	    foreach my $a (<*.a >) {
+		$a eq "ACLMAIN.a" and next;
+		(my $sl = "lib$a") =~ s/\.a$/.sl/;
+		$sl =~ s/^liblib/lib/;
+		-f $sl and next;	# Already done;
+		mkdir "_a_SL" or die "Cannot create temp dir for conversion: $!";
+		chdir "_a_SL" or die "Cannot chdir to temp dir: $!";
+		print STDERR "  Converting $a ...\n";
+		system "ar x ../$a";
+		system "ld -b -o ../$sl *.o";
+		unlink <*.o >;
+		chdir "..";
+		rmdir "_a_SL";
+		}
+	    chdir $cwd;
+	    }
+	}
+
+    if (-f "ulib/libU2000c.sl") {
+	s/\.a$// for @ulibs;
+	s/^lib// for @ulibs;
+	$ULIBS = join " -l" => "-L$UNIFY", @ulibs;
+	}
+    else {
+	$ULIBS = join " ulib/" => "", @ulibs;
+	}
     print "\n";
 
     # --- Check development environment
@@ -104,9 +149,13 @@ sub CheckUnify
 	} # Check
     Check ("bin/SQL");
     Check ("bin/EPP");
-    map { Check ($_) } split m/ u/ => $ULIBS;
+    if (-f "ulib/libU2000c.sl") {
+	map { Check ("lib/lib${_}.sl") } @ulibs;
+	}
+    else {
+	map { Check ($_) } split m/ u/ => $ULIBS;
+	}
 
-    my @sqlv = `SQL -version`;
     splice @sqlv, -2, 2;
     print "System:           perl$] $^O\n",
 	  "UNIFY:            $UNITOP\n",
@@ -115,6 +164,8 @@ sub CheckUnify
 
     $UNITOP;
     } # CheckUnify
+
+1;
 
 package MY;
 

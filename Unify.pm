@@ -1,4 +1,4 @@
-#   Copyright (c) 1999-2002 H.Merijn Brand
+#   Copyright (c) 1999-2004 H.Merijn Brand
 #
 #   You may distribute under the terms of either the GNU General Public
 #   License or the Artistic License, as specified in the Perl README file.
@@ -20,10 +20,10 @@ DBD::Unify - DBI driver for Unify database systems
  # man DBI for explanation of each method (there's more than listed here)
 
  $dbh = DBI->connect ("DBI:Unify:[\$dbname]", "", $schema, {
-			 AutoCommit => 0,
-			 ChopBlanks => 1,
-			 ScanLevel  => 2,
-			 DBDverbose => 0,
+			 AutoCommit  => 0,
+			 ChopBlanks  => 1,
+			 ScanLevel   => 2,
+			 uni_verbose => 0,
 			 });
  $dbh = DBI->connect_cached (...);                   # NYT
  $dbh->do ($statement);
@@ -82,7 +82,7 @@ use DBI 1.19;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.26";
+$VERSION = "0.30";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -369,7 +369,7 @@ COMMON TO ALL HANDLES" are implemented specifically for the Unify
 DBD driver, but they might have been inhereted from DBI. The I<ChopBlanks>
 attribute is implemented, but defaults to 1 for DBD::Unify.
 The Unify driver supports "ScanLevel" to set the transaction scan
-level to a value between 1 and 16 and "DBDverbose" to set DBD specific
+level to a value between 1 and 16 and "uni_verbose" to set DBD specific
 debugging, allowing to show only massages from DBD-Unify without using
 the default DBI->trace () call.
 
@@ -475,7 +475,7 @@ H.Merijn Brand, <h.m.brand@hccnet.nl> developed the DBD::Unify extension.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2002 H.Merijn Brand
+Copyright (C) 1999-2004 H.Merijn Brand
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

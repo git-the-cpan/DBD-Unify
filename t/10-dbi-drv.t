@@ -44,7 +44,7 @@ ok (0, $dbh);
 # -- available drivers
 
 my @driver_names = DBI->available_drivers;
-ok (0, 1 == grep m/^Unify$/, @driver_names);
+ok (0, 1 == grep m/^Unify$/ => @driver_names);
 
 # -- data_sources
 
@@ -59,7 +59,7 @@ ok (0, $rv == 0);
 $rv = DBI->trace (0, $trcfile);
 ok (0, $rv == 1);
 open TRC, "< $trcfile";
-ok (0, <TRC> =~ m/trace level set to 1$/);
+ok (0, <TRC> =~ m/\btrace level set to 1\b/);
 
 # =============================================================================
 

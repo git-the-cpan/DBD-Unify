@@ -9,7 +9,6 @@ README
 Unify.h
 Unify.pm
 Unify.xs
-Uniperl.pm
 t/01-base.t
 t/02-connect.t
 t/03-general.t
@@ -23,3 +22,4 @@ t/21-uni-regex.t
 t/27-uni-max.t
 t/30-reconnect.t
 t/99-done.t
+META.yml                                 Module meta-data (added by MakeMaker)

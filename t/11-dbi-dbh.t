@@ -59,11 +59,11 @@ ok (0, @tables == 1 && $tables[0] eq "SYS.ACCESSIBLE_COLUMNS");
 my $rv = $dbh->do ("update DIRS set DIRNAME = 'Foo' where DIRNAME = '^#!\" //'");
 ok (0, $rv == 1);
 #$rv = \$dbh->do ("update DIRS set DIRNAME = 'Foo' where DIRNAME = '^#!\" //'",
-#    { DBDverbose => 1 });
+#    { uni_verbose => 1 });
 print "ok ", ++$t, " # todo: attibs unused in \$dbh->do ()\n";
 #ok (0, $rv == 1);
 #$rv = $dbh->do ("update DIRS set DIRNAME = ? where DIRNAME = ?",
-#    { DBDverbose => 1 },
+#    { uni_verbose => 1 },
 #    'Foo', '^#!\" //');
 #ok (0, $rv == 1);
 print "ok ", ++$t, " # todo: params unused in \$dbh->do ()\n";

@@ -1,4 +1,4 @@
-/* Copyright (c) 1999-2002  H.Merijn Brand <h.m.brand@hccnet.nl>
+/* Copyright (c) 1999-2004  H.Merijn Brand <h.m.brand@hccnet.nl>
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Artistic License, as specified in the Perl README file.
@@ -403,13 +403,17 @@ int dbd_db_STORE_attrib (SV *dbh, imp_dbh_t *imp_dbh, SV *keysv, SV *valuesv)
     STRLEN kl;
     char   *key = SvPV (keysv, kl);
     SV     *cachesv = NULL;
-    int    on = SvIV (valuesv);
+    int    on  = SvTRUE (valuesv);
 
     unless (DBIc_ACTIVE (imp_dbh))
 	return (0);
 
-    if (kl == 10 && strEQ (key, "DBDverbose")) {
-	opt_v = on;
+    if (kl == 11 && strEQ (key, "uni_verbose")) {
+	opt_v = SvIV (valuesv);
+	return (TRUE);
+	}
+    if (kl == 10 && strEQ (key, "DBDverbose")) {	/* Depricated */
+	opt_v = SvIV (valuesv);
 	return (TRUE);
 	}
     if (kl == 10 && strEQ (key, "AutoCommit")) {
@@ -417,10 +421,11 @@ int dbd_db_STORE_attrib (SV *dbh, imp_dbh_t *imp_dbh, SV *keysv, SV *valuesv)
 	return (TRUE);
 	}
     if (kl ==  9 && strEQ (key, "ScanLevel")) {
-	dbg (2, "DBD::Unify::dbd_db_STORE (ScanLevel = %d)\n", on);
-	if (on < 1 || on > 16)
+	auto int val = SvIV (valuesv);
+	dbg (2, "DBD::Unify::dbd_db_STORE (ScanLevel = %d)\n", val);
+	if (val < 1 || val > 16)
 	    return (FALSE);
-	(void)sprintf (u_sql_do, "set transaction scan level %d", on);
+	(void)sprintf (u_sql_do, "set transaction scan level %d", val);
 	EXEC SQL
 	    EXECUTE IMMEDIATE :u_sql_do;
 	dbg (3, "    After SCANLVL,  sqlcode = %d\n", SQLCODE);
@@ -444,7 +449,11 @@ SV *dbd_db_FETCH_attrib (SV *dbh, imp_dbh_t *imp_dbh, SV *keysv)
     unless (DBIc_ACTIVE (imp_dbh))
 	return (0);
 
-    if (kl == 10 && strEQ (key, "DBDverbose")) {
+    if (kl == 11 && strEQ (key, "uni_verbose")) {
+	retsv = newSViv (opt_v);
+	return (retsv);
+	}
+    if (kl == 10 && strEQ (key, "DBDverbose")) {	/* Depricated */
 	retsv = newSViv (opt_v);
 	return (retsv);
 	}
@@ -1489,7 +1498,7 @@ int dbd_st_blob_read (SV *sth, imp_sth_t *imp_sth, int field,
 int dbd_st_STORE_attrib (SV *sth, imp_sth_t *imp_sth, SV *keysv, SV *valuesv)
 {
     STRLEN kl;
-    char   *key = SvPV (keysv,kl);
+    char   *key = SvPV (keysv, kl);
     SV     *cachesv = NULL;
     int    on = SvTRUE (valuesv);
 

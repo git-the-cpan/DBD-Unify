@@ -2,7 +2,7 @@ DBD::Unify --  a Unify interface for Perl 5 using DBI.
 
 This is the Database Driver for the Unify family of database products.
 
-   Copyright (c) 1999-2003  H.Merijn Brand <h.m.brand@hccnet.nl>
+   Copyright (c) 1999-2004  H.Merijn Brand <h.m.brand@hccnet.nl>
 
    You may distribute under the terms of either the GNU General Public
    License or the Artistic License, as specified in the Perl README file.
@@ -15,7 +15,7 @@ REQUIREMENTS
     8.1DAB, 8.2AC, 8.2AD, and 8.2B, but this does not mean it might not work
     on U2000 databases or other DataServer releases.
 
-    It uses DBI 1.35 and perl5.6.1, perl-5.8.0, or perl5.9.0, but might get
+    It uses DBI 1.40 and perl5.6.1, perl-5.8.3, or perl5.9.1, but might get
     it to work with DBI 0.93 or higher and perl 5.005 or higher. But then
     again, in that case you should consider an upgrade.
 
@@ -95,6 +95,16 @@ BUILDING, TESTING AND INSTALLING:
 
     As with all modules: Patches are welcome.
 
+SHARED BUILDS on HP-UX
+
+    As of somewhere in the DataServer 8.2 track, Unify has finally indulged
+    to my request for shared library prepared objects, at least on HP-UX,
+    where they only ship static libraries. Objects inside these libraries
+    are now built with the +Z option, so it is easy to convert the static
+    libraries (.a) to shared libraries (.sl). The Makefile build process
+    will propose such transition, and - once succeeded - use it for the now
+    shared object, which is *much* smaller than when built statically.
+    
 RESTRICTIONS:
 
     This is a basic port for Unify. At the moment of writing, this DBD
@@ -193,7 +203,7 @@ ACKNOWLEDGEMENTS
 
 COPYRIGHT AND LICENSE
 
-    Copyright (C) 1999-2003 H.Merijn Brand
+    Copyright (C) 1999-2004 H.Merijn Brand
 
     This library is free software; you can redistribute it and/or modify
     it under the same terms as Perl itself. 

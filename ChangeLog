@@ -1,3 +1,22 @@
+*** Release 0.30
+
+    Tue 02 Mar 2004 <h.m.brand@hccnet.nl>
+
+	- Tested against DBI-1.39 through 1.40
+	- Support for shared builds on HP-UX (Unify/DS 8.2B and up)
+	- Fix for $dbh attributes from 0.27 was not as good as it
+	  should have been
+
+*** Release 0.27
+
+    Fri 29 Aug 2003 <h.m.brand@hccnet.nl>
+
+	- DBDverbose to uni_verbose
+	- Tested against DBI-1.36 through 1.38
+	- Removed Uniperl.pm (never knew what it was for anyway)
+	- Makefile.PL to return the status of WriteMakefile ()
+	- Fixed a buglet in assigning dbh attributes
+
 *** Release 0.26
 
     Mon 17 Mar 2003 <h.m.brand@hccnet.nl>
@@ -23,7 +42,7 @@
 	- Added installu.pl (make installu) to support multiple
 	  versions alongside
 	- README changes for 8.1 (UTF-8, network support, install)
-	- Tested against DBI-1.23
+	- Tested against DBI-1.21 through 1.23
 
 *** Release 0.23
 
