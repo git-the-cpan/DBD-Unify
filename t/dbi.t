@@ -48,6 +48,7 @@ sub connect_db ($)
 	AutoCommit => 0,
 	ScanLevel  => 7,
 	ChopBlanks => 1,
+#	DBDverbose => 8,
 	});
     unless ($dbh) {
         print "1..0\n";
@@ -138,6 +139,16 @@ $sth = $dbh->prepare ("update xx set xc = ? where xf = 10.1 and xl = ?");
 $sth->execute ("12345", 1010);
 $sth->finish ();
 $dbh->commit;
+
+$sth = $dbh->prepare ("select * from xx where xs = ?");
+$sth->execute (1);
+$sth->execute (-1);
+$sth->execute ("1");
+$sth->execute ("-1");
+$sth->execute ("  1");
+$sth->execute (" -1");
+#$sth->execute ("x");	# Should warn, which it does.
+$sth->finish ();
 
 # DROP THE TABLE
 $dbh->do ("drop table xx");

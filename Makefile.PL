@@ -41,7 +41,11 @@ WriteMakefile (
 		       "Unify\$(OBJ_EXT)"  => "Unify.h",
 		       },
 
-    dynamic_lib   => { OTHERLDFLAGS => " $ULIBS \$(COMPOBJS) -lm",
+    dynamic_lib   => { OTHERLDFLAGS => " $ULIBS \$(COMPOBJS) " .
+					    { hpux	=> "",
+					      aix	=> "-lm",
+					      dec_osf	=> "-lxnet",
+					      }->{$^O},
 		       },
     macro         => { EPP    => "$UNITOP/bin/EPP",
 		       EPPOPT => "",

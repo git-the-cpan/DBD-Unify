@@ -19,7 +19,7 @@
 
 #include <unistd.h>
 #include <stdlib.h>
-#ifndef _AIX
+#ifdef __hpux
 #  include <varargs.h>
 #  endif
 #include <stdio.h>
@@ -37,7 +37,7 @@
 #include "dbdimp.h"
 
 /* In case the port preferred stdarg instead of varargs */
-#ifdef _AIX
+#ifndef __hpux		/* _AIX && __osf__ */
 #  ifdef	va_start
 #    undef	va_start
 #    undef	va_end
@@ -75,7 +75,11 @@ float	fdF;
 double	fdD;
 EXEC SQL END   DECLARE SECTION;
 
+#ifdef __osf__
+int	SQLCODE;
+#else
 long	SQLCODE;
+#endif
 
 /* VARARGS2 */
 static void dbg (level, fmt, va_alist)
@@ -604,6 +608,17 @@ IV        maxlen;
 
 
     dbg (3, "     Field %3d: ", fix);
+#ifdef __osf__
+    (void)strcpy (fnm, "?");
+    EXEC SQL
+	GET DESCRIPTOR :i_sql_nm
+	VALUE :fix
+	      :ftp = TYPE,
+	      :fln = LENGTH,
+	      :fpr = PRECISION,
+	      :fsc = SCALE,
+	      :fnl = NULLABLE;	/* OSF/1 6.3AB crashes on name */
+#else
     EXEC SQL
 	GET DESCRIPTOR :i_sql_nm
 	VALUE :fix
@@ -613,6 +628,7 @@ IV        maxlen;
 	      :fsc = SCALE,
 	      :fnl = NULLABLE,
 	      :fnm = NAME;
+#endif
     unless (sqlError (dbh))
 	return (-1);
 
@@ -638,8 +654,8 @@ IV        maxlen;
 		dbg (3, "CHAR%6d: ", fln);
 		s = SvPV (value, l);
 		if (l > fln)
-		    croak ("DBD::Unify::st_bind: string too long (%d > %d)",
-			l, fln);
+		    croak ("DBD::Unify::st_bind: index %d: "
+			"string too long (%d > %d)", fix, l, fln);
 
 		dbg (3, "(%d) '%s'", strlen (s), s);
 		(void)memset (fdC, 0x20202020, 256);
@@ -656,9 +672,6 @@ IV        maxlen;
 
 	    case SQLFLOAT:
 		dbg (3, "FLOAT %2d.%1d: ", fln, fpr);
-		unless (SvNOK (value))
-		    croak ("DBD::Unify::st_bind: need float");
-
 		fdF = (float)SvNV (value);
 		dbg (3, "%8.4f", fdF);
 		EXEC SQL
@@ -673,9 +686,6 @@ IV        maxlen;
 	    case SQLREAL:
 	    case SQLDBLPREC:
 		dbg (3, "DOUBL %1d.%2d: ", fln, fpr);
-		unless (SvNOK (value))
-		    croak ("DBD::Unify::st_bind: need double");
-
 		fdD = (double)SvNV (value);
 		dbg (3, "%8.4f", fdD);
 		EXEC SQL
@@ -689,9 +699,6 @@ IV        maxlen;
 
 	    case SQLAMOUNT:
 		dbg (3, "AMNT   %d.%d: ", fpr, fsc);
-		unless (SvNOK (value))
-		    croak ("DBD::Unify::st_bind: need float");
-
 		fdF = (float)SvNV (value);
 		dbg (3, "%8.4f", fdF);
 		EXEC SQL
@@ -705,9 +712,6 @@ IV        maxlen;
 
 	    case SQLHUGEAMT:
 		dbg (3, "HAMNT  %d.%d: ", fpr, fsc);
-		unless (SvNOK (value))
-		    croak ("DBD::Unify::st_bind: need double");
-
 		fdD = (double)SvNV (value);
 		dbg (3, "%8.4f", fdD);
 		EXEC SQL
@@ -733,12 +737,7 @@ IV        maxlen;
 	    case SQLDECIMAL:
 	    case SQLINTEGER:
 		dbg (3, "NUMERIC %2d: ", fpr);
-		if (SvIOK (value) || isdigit (*(SvPV (value, l))))
-		    fdL = (int)SvIV (value);
-		else
-		    croak ("DBD::Unify::st_bind: need integer, got '%s'",
-			SvPV (value, l));
-
+		fdL = (int)SvIV (value);
 		dbg (3, "%8d", fdL);
 		EXEC SQL
 		    SET SQL DESCRIPTOR :i_sql_nm
@@ -750,10 +749,9 @@ IV        maxlen;
 		break;
 
 	    case SQLSMINT:
-		unless (SvIOK (value))
-		    croak ("DBD::Unify::st_bind: need integer");
-
+		dbg (3, "NUMERIC %2d: ", fpr);
 		fdS = (short)SvIV (value);
+		/* Should I warn if integer > 32767 ? */
 		dbg (3, "%8d", fdS);
 		EXEC SQL
 		    SET SQL DESCRIPTOR :i_sql_nm
@@ -769,9 +767,8 @@ IV        maxlen;
 		break;
 
 	    default:
-		croak ("DBD::Unify::st_bind: "
-		    "unknown field type %d for field '%s'\n",
-			ftp, fnm);
+		croak ("DBD::Unify::st_bind: index %d: "
+		    "unknown field type %d for field '%s'\n", fix, ftp, fnm);
 	    }
 	}
     dbg (3, " ==\n");

@@ -16,7 +16,7 @@ or higher and perl 5.004 or higher.
 See the CHANGES file for a complete history
 
 This is a very basic port for Unify. At the moment of writing, this DBD
-does not support all DBI elements, methods and attributes.
+does not support all DBI elements, methods and attributes. (See RESTRICTIONS)
 
 DATE, TIME, TEXT and BINARY fields are not (yet) supported, though it is
 easy to change (code is supplied, but returns undef). Since we do not use
@@ -42,7 +42,7 @@ BUILDING, TESTING AND INSTALLING:
 
 RESTRICTIONS:
 
-    # No documentation (yet)
+    # Incomplete or out-of-date documentation
 
     # Missing support for datatypes DATE, TIME, TEXT and BINARY in fetch
       and positional parameters
@@ -59,3 +59,7 @@ RESTRICTIONS:
 TO DO:
 
     # Remove as many restrictions as possible ;-)
+
+    # Investigate if SvIOK (value) and SvNOK (value) have counterparts
+      that REALLY check for IOK or NOK, even if string value has not been
+      used as numeric value before in st_bind ()
