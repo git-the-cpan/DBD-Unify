@@ -92,7 +92,7 @@ $t = 1;
     $sts->finish;
     }
 
-if ("This test is known to fail") { ok ("shlike will core", 1) } else
+#if ("This test is known to fail") { ok ("shlike will core", 1) } else
 {   my $sts = $dbh->prepare (q;
 	select COLCODE
 	from   SYS.COLTYPE

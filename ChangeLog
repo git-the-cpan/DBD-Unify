@@ -1,11 +1,18 @@
+*** Release 0.26
+
+    Mon 17 Mar 2003 <h.m.brand@hccnet.nl>
+
+	- Fixed forgotten (essential) updates to ChangeLog and README
+
 *** Release 0.25
 
-    Fri 21 Feb 2003 <h.m.brand@hccnet.nl>
+    Fri 14 Mar 2003 <h.m.brand@hccnet.nl>
 
 	- Many README additions and updates
-	- Tested against DBI-1.32
+	- Tested against DBI-1.32 through 1.35
 	- Workaround for problem number 22960: re-connecting to the
 	  same database fails in DS 8.2 and below
+	- Allowed state S1000 in 10-dbi-drv for DS 8.2B
 
 *** Release 0.24
 

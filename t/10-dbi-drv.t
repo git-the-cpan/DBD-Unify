@@ -76,7 +76,7 @@ ok (0, <TRC> =~ m/trace level set to 1$/);
 my $sth = $dbh->do ("update foo set baz = 1 where bar = 'Wrong'");
 ok (0, $DBI::err    == -2046);
 ok (0, $DBI::errstr eq "Invalid table name.");
-ok (0, $DBI::state  eq "");
+ok (0, $DBI::state  eq "" || $DBI::state eq "S1000");
 ok (0, $DBI::rows   == -1);
 
 # Methods common to all handles
@@ -85,7 +85,7 @@ ok (0, $DBI::rows   == -1);
 
 ok (0, $dbh->err    == -2046);
 ok (0, $dbh->errstr eq "Invalid table name.");
-ok (0, $dbh->state  eq "");
+ok (0, $dbh->state  eq "" || $dbh->state eq "S1000");
 ok (0, $dbh->rows   == -1);
 
 # -- trace_msg

@@ -82,7 +82,7 @@ use DBI 1.19;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.25";
+$VERSION = "0.26";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
