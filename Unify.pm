@@ -50,7 +50,7 @@ use DBI 1.12;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.03";
+$VERSION = "0.04";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -284,7 +284,9 @@ COMMON TO ALL HANDLES" are implemented specifically for the Unify
 DBD driver, but they might have been inhereted from DBI. The I<ChopBlanks>
 attribute is implemented, but defaults to 1 for DBD::Unify.
 The Unify driver supports "ScanLevel" to set the transaction scan
-level to a value between 1 and 16.
+level to a value between 1 and 16 and "DBDverbose" to set DBD specific
+debugging, allowing to show only massages from DBD-Unify without using
+the default DBI->trace () call.
 
 The connect call will result in statements like:
 

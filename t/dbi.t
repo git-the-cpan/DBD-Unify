@@ -1,11 +1,8 @@
 #!/usr/bin/perl
 
 use DBI qw(:sql_types);
-use vars qw($num_test);
 
 $verbose = 1;# unless defined $verbose;
-my $testtable = "testhththt";
-my $num_test = 1;
 
 my $t = 0;
 sub ok ($$$;$)
@@ -36,11 +33,11 @@ unless (exists $ENV{DBPATH} && -d $ENV{DBPATH} && -r "$ENV{DBPATH}/file.db") {
     }
 my $dbname = "DBI:Unify:$ENV{DBPATH}";
 
-sub connect_db ($$)
+sub connect_db ($)
 {
     # Connects to the database.
     # If this fails everything else is in vain!
-    my ($num_test, $dbname) = @_;
+    my ($dbname) = @_;
 
     $verbose and
 	print "Testing: DBI->connect ('$dbname'):\n";
@@ -52,18 +49,19 @@ sub connect_db ($$)
 	ScanLevel  => 7,
 	ChopBlanks => 1,
 	});
-#   $dbh->{ChopBlanks} = 1;
     unless ($dbh) {
         print "1..0\n";
         warn "Cannot connect to database $dbname: $DBI::errstr\n";
         exit 0;
 	}
-    print "1..$num_test\nok 1\n";
+    print "1..1\nok 1\n";
     $dbh;
     } # connect_db
 
-my $dbh = connect_db ($num_test, $dbname) or die "connect";
+my $dbh = connect_db ($dbname) or die "connect";
 $t = 1;
+
+# CREATE THE TABLE
 $dbh->do (join " " =>
     "create table xx (",
     "    xs numeric  (4),",
@@ -73,12 +71,21 @@ $dbh->do (join " " =>
     "    xa amount (5,2)",
     ")");
 $dbh->commit;
+
+# FILL THE TABLE
 $dbh->do ("insert into xx values (0,1000,'   ',0.1,0.2)");
-foreach my $v ( 1 .. 18 ) {
+foreach my $v ( 1 .. 9 ) {
     $dbh->do ("insert into xx values ($v,100$v,'$v',$v.1,$v.2)");
     }
+# FILL THE TABLE, POSITIONAL
+my $sth = $dbh->prepare ("insert into xx values (?,?,?,?,?)");
+foreach my $v ( 10 .. 18 ) {
+    $sth->execute ($v, 1000 + $v, "$v", $v + .1, $v + .2);
+    }
+$sth->finish ();
 $dbh->commit;
 
+# SELECT FROM THE TABLE
 $sth = $dbh->prepare ("select * from xx where xs between 4 and 8 or xs = 0");
 $sth->execute ();
 while (my ($xs, $xl, $xc, $xf, $xa) = $sth->fetchrow_array ()) {
@@ -86,6 +93,7 @@ while (my ($xs, $xl, $xc, $xf, $xa) = $sth->fetchrow_array ()) {
     }
 $sth->finish ();
 
+# SELECT FROM THE TABLE, NESTED
 $sth = $dbh->prepare ("select xs from xx where xs in (3, 5)");
 $sth->execute ();
 while (my ($xs) = $sth->fetchrow_array ()) {
@@ -100,12 +108,38 @@ while (my ($xs) = $sth->fetchrow_array ()) {
     }
 $sth->finish ();
 
+# SELECT FROM THE TABLE, POSITIONAL
 $sth = $dbh->prepare ("select xs from xx where xs = ?");
-$sth->execute (3);
-my ($xc) = $sth->fetchrow_array ();
-print STDERR "\t<< 3 => '$xc' >>\n";
+foreach my $xs (3 .. 5) {
+    $sth->execute ($xs);
+    my ($xc) = $sth->fetchrow_array ();
+    print STDERR "\t<< $xs => '$xc' >>\n";
+    }
 $sth->finish ();
 
+# UPDATE THE TABLE
+$dbh->do ("update xx set xf = xf + .05 where xs = 5");
+$dbh->commit;
+
+# UPDATE THE TABLE, POSITIONAL
+$sth = $dbh->prepare ("update xx set xa = xa + .05 where xs = ?");
+$sth->execute (4);
+$sth->finish ();
+$dbh->commit;
+
+# UPDATE THE TABLE, POSITIONAL TWICE
+$sth = $dbh->prepare ("update xx set xc = ? where xs = ?");
+$sth->execute ("33", 3);
+$sth->finish ();
+$dbh->commit;
+
+# UPDATE THE TABLE, POSITIONAL TWICE, NON-KEY
+$sth = $dbh->prepare ("update xx set xc = ? where xf = 10.1 and xl = ?");
+$sth->execute ("12345", 1010);
+$sth->finish ();
+$dbh->commit;
+
+# DROP THE TABLE
 $dbh->do ("drop table xx");
 $dbh->commit;
 

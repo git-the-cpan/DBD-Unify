@@ -4,9 +4,15 @@
  * License or the Artistic License, as specified in the Perl README file.
  *
  * Large parts of this file are shamelesly copied from other DBD drivers,
- * after which they are formatted to be readable and modified to reflect
- * the way UNIFY can work with it.
- * Main sources were Oracle (1.03), FreeTDS (0.02) and Ingres (0.24)
+ * after which they are formatted to be readable, stripped and modified
+ * to reflect the way UNIFY can work with it.
+ *
+ * Much effort has been put in keeping this driver as clean as possible.
+ * It consists entirely of E/SQL statements. ufchmsg () in the sqlError ()
+ * function is the *ONLY* HLI call.
+ * 
+ * Main sources were Oracle (1.03), FreeTDS (0.02) and Ingres (0.24, 0.25)
+ * whose writers seem to have copied from other sources too ;-)
  *
  * Thanks to all other DBD writers ;-)
  */
@@ -347,6 +353,10 @@ SV        *valuesv;
     SV     *cachesv = NULL;
     int    on = SvIV (valuesv);
 
+    if (kl == 10 && strEQ (key, "DBDverbose")) {
+	opt_v = on;
+	return (TRUE);
+	}
     if (kl == 10 && strEQ (key, "AutoCommit")) {
 	DBIc_set (imp_dbh, DBIcf_AutoCommit, 0);	/* Allways off	*/
 	return (TRUE);
@@ -379,6 +389,10 @@ SV        *keysv;
     /* Default to caching results for DBI dispatch quick_FETCH  */
     int    cacheit = TRUE;
 
+    if (kl == 10 && strEQ (key, "DBDverbose")) {
+	retsv = newSViv (opt_v);
+	return (retsv);
+	}
     if (kl == 10 && strEQ (key, "AutoCommit")) {
 	retsv = newSVsv (boolSV (0));
 	return (retsv);
@@ -514,7 +528,7 @@ SV        *attribs;   /* unused */
 	return (-1);
     DBIc_NUM_FIELDS (imp_sth) = n_sql_st;
 
-    /* Check for positional poarameters */
+    /* Check for positional parameters */
     {   register char	*src = statement;
         auto	 int	in_lit = 0;	/* inside "..."		*/
         auto	 int	in_str = 0;	/* inside '...'		*/
@@ -574,8 +588,6 @@ IV        maxlen;
     AV    *av;
     SV    *dbh = DBIc_PARENT_H (imp_sth);
 
-    int   ch;
-
     D_imp_dbh_from_sth;
 
     unless (use_sth_id (dbh, imp_sth->id))
@@ -618,9 +630,9 @@ IV        maxlen;
 	    return (-1);
 	}
     else {
+	auto	STRLEN	l;
 	switch (ftp) {
 	    case SQLCHAR: {
-		auto	STRLEN	l;
 		auto	char	*s;
 
 		dbg (3, "CHAR%6d: ", fln);
@@ -629,7 +641,9 @@ IV        maxlen;
 		    croak ("DBD::Unify::st_bind: string too long (%d > %d)",
 			l, fln);
 
-		(void)sprintf (fdC, "%-*.*s", fln, fln, s);
+		dbg (3, "(%d) '%s'", strlen (s), s);
+		(void)memset (fdC, 0x20202020, 256);
+		(void)memcpy (fdC, s, l); fdC[fln] = (char)0;
 		EXEC SQL
 		    SET SQL DESCRIPTOR :i_sql_nm
 		    VALUE :fix
@@ -646,6 +660,7 @@ IV        maxlen;
 		    croak ("DBD::Unify::st_bind: need float");
 
 		fdF = (float)SvNV (value);
+		dbg (3, "%8.4f", fdF);
 		EXEC SQL
 		    SET SQL DESCRIPTOR :i_sql_nm
 		    VALUE :fix
@@ -662,6 +677,7 @@ IV        maxlen;
 		    croak ("DBD::Unify::st_bind: need double");
 
 		fdD = (double)SvNV (value);
+		dbg (3, "%8.4f", fdD);
 		EXEC SQL
 		    SET SQL DESCRIPTOR :i_sql_nm
 		    VALUE :fix
@@ -677,6 +693,7 @@ IV        maxlen;
 		    croak ("DBD::Unify::st_bind: need float");
 
 		fdF = (float)SvNV (value);
+		dbg (3, "%8.4f", fdF);
 		EXEC SQL
 		    SET SQL DESCRIPTOR :i_sql_nm
 		    VALUE :fix
@@ -692,6 +709,7 @@ IV        maxlen;
 		    croak ("DBD::Unify::st_bind: need double");
 
 		fdD = (double)SvNV (value);
+		dbg (3, "%8.4f", fdD);
 		EXEC SQL
 		    SET SQL DESCRIPTOR :i_sql_nm
 		    VALUE :fix
@@ -715,10 +733,13 @@ IV        maxlen;
 	    case SQLDECIMAL:
 	    case SQLINTEGER:
 		dbg (3, "NUMERIC %2d: ", fpr);
-		unless (SvIOK (value))
-		    croak ("DBD::Unify::st_bind: need integer");
+		if (SvIOK (value) || isdigit (*(SvPV (value, l))))
+		    fdL = (int)SvIV (value);
+		else
+		    croak ("DBD::Unify::st_bind: need integer, got '%s'",
+			SvPV (value, l));
 
-		fdL = (int)SvIV (value);
+		dbg (3, "%8d", fdL);
 		EXEC SQL
 		    SET SQL DESCRIPTOR :i_sql_nm
 		    VALUE :fix
@@ -733,6 +754,7 @@ IV        maxlen;
 		    croak ("DBD::Unify::st_bind: need integer");
 
 		fdS = (short)SvIV (value);
+		dbg (3, "%8d", fdS);
 		EXEC SQL
 		    SET SQL DESCRIPTOR :i_sql_nm
 		    VALUE :fix
@@ -770,18 +792,27 @@ imp_sth_t *imp_sth;
 	return (-1);
     dbg (2, "DBD::Unify::st_execute %s\n", u_sql_nm);
 
+    if (DBIc_ACTIVE (imp_sth)) {	/* Re-execute	*/
+	EXEC SQL
+	    CLOSE :c_sql_nm;
+	dbg (3, "    After close,    sqlcode = %d\n", SQLCODE);
+	unless (sqlError (dbh))
+	    return (-1);
+	}
+
     if (DBIc_NUM_FIELDS (imp_sth) == 0) {
 	/* non-select statement: just execute it */
-	dbg (2, "DBD::Unify::st_execute - non-select\n");
+	dbg (2, "DBD::Unify::st_execute - non-select (<= %d, => %d)\n",
+	    DBIc_NUM_FIELDS (imp_sth), DBIc_NUM_PARAMS (imp_sth));
 
 	if (DBIc_NUM_PARAMS (imp_sth) > 0) {
 	    EXEC SQL
-		EXECUTE              :u_sql_st
+		EXECUTE              :u_sql_nm
 		USING SQL DESCRIPTOR :i_sql_nm;
 	    }
 	else {
 	    EXEC SQL
-		EXECUTE              :u_sql_st;
+		EXECUTE              :u_sql_nm;
 	    }
 	dbg (3, "    After execute,  sqlcode = %d\n", SQLCODE);
 	return (sqlError (sth));
@@ -847,8 +878,7 @@ imp_sth_t *imp_sth;
 	}
 
     for (fix = 1; fix <= num_fields; fix++) {
-	int       ch;
-	SV        *sv = AvARRAY(av)[fix - 1];
+	auto	SV        *sv = AvARRAY(av)[fix - 1];
 
 	SvREADONLY_off (sv);
 
@@ -889,9 +919,8 @@ imp_sth_t *imp_sth;
 			    i--;
 			}
 		    fdC[i] = (char)0;
-		    dbg (3, "(%d)'%s' ", i, fdC);
 		    sv_setpvn (sv, fdC, i);
-		    dbg (3, "\"%s\"", SvPVX (sv));
+		    dbg (3, "(%d) '%s'", i, SvPVX (sv));
 		    break;
 
 		case SQLFLOAT:
@@ -1008,29 +1037,19 @@ int dbd_st_rows (sth, imp_sth)
 SV        *sth;
 imp_sth_t *imp_sth;
 {
-    NYI ("st_rows");
-    return (0);
-
-#ifdef NOTYET
+    /* If using sqlca, Am I?
     EXEC SQL BEGIN DECLARE SECTION;
-    int rowcount;
+    int newrowid;
+    int numrows;
     EXEC SQL END   DECLARE SECTION;
 
-    dbg (2, "DBI::Unify::st_rows\n");
-
-    rowcount = 0;
-    /* Find which table I'm using in sth */
-    /*
-    EXEC SQL
-	SELECT count (*)
-	FROM  :table
-	INTO  :rowcount;
-    dbg (2, "rowcount = %d\n", rowcount);
-    unless (sqlError (sth))
-	return (-1);
+    if (SQLA_HAS (SQL_ROWID))	/* After insert ...
+	newrowid = sqlca.rowid;
+    if (SQLA_HAS (SQL_NROWS))	/* After insert, delete, update ...
+	numrows = sqlca.nrows;
     */
-    return (rowcount);
-#endif
+    NYI ("st_rows");
+    return (0);
     } /* dbd_st_rows */
 
 int dbd_st_finish (sth, imp_sth)
@@ -1051,7 +1070,7 @@ imp_sth_t *imp_sth;
 	unless (sqlError (dbh))
 	    return (-1);
 
-	/*
+	/*	UNIFY design flaw? (method doesn't exist)
 	EXEC SQL
 	    DEALLOCATE PREPARE    :c_sql_nm;
 	dbg (3, "    After deallocC, sqlcode = %d\n", SQLCODE);
@@ -1156,7 +1175,7 @@ SV        *keysv;
 
     i = DBIc_NUM_FIELDS (imp_sth);
 
-#ifdef NOTYET
+#ifdef NOTYET	/* From Oracle DBD, seems pretty complete (and readable) */
     if (kl == 11 && strEQ (key, "uni_lengths")) {
 	AV *av = newAV ();
 	retsv = newRV (sv_2mortal ((SV*)av));
