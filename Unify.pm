@@ -7,14 +7,19 @@ require 5.004;
 
 use strict;
 
+use Carp;
+
 =head1 NAME
 
 DBD::Unify - DBI driver for Unify database systems
 
 =head1 SYNOPSIS
 
-    $dbh = DBI->connect ("DBI:Unify:\$dbname", "", $schema,
-			    { AutoCommit => 0 });
+    $dbh = DBI->connect ("DBI:Unify:[\$dbname]", "", $schema, {
+			    AutoCommit => 0,
+			    ChopBlanks => 1,
+			    ScanLevel  => 2,
+			    });
     $dbh->do ($statement);
     $dbh->commit ();
     $dbh->rollback ();
@@ -38,16 +43,15 @@ use DBI 1.12;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
+$VERSION = "0.02";
 
 @ISA = qw(DynaLoader);
-
-$VERSION = "0.01";
-
 bootstrap DBD::Unify $VERSION;
 
-use vars qw($err $errstr $drh);
+use vars qw($err $errstr $state $drh);
 $err    = 0;		# holds error code   for DBI::err
 $errstr = "";		# holds error string for DBI::errstr
+$state  = "";		# holds SQL state    for DBI::state
 $drh    = undef;	# holds driver handle once initialised
 
 sub driver
@@ -63,7 +67,8 @@ sub driver
 	Version      => $VERSION,
 	Err          => \$DBD::Unify::err,
 	Errstr       => \$DBD::Unify::errstr,
-	Attribution  => "Unify DBD by H.Merijn Brand",
+	State        => \$DBD::Unify::state,
+	Attribution  => "DBD::Unify by H.Merijn Brand",
 	});
 
     $drh;
@@ -75,44 +80,48 @@ sub driver
 
 package DBD::Unify::dr;
 
+$DBD::Unify::dr::imp_data_size = 0;
+
 sub connect
 {
     my ($drh, $dbname, $user, $auth) = @_;
 
+    unless ($ENV{UNIFY} && -d $ENV{UNIFY} && -x _) {
+	carp ("\$UNIFY not set or invalid. UNIFY may fail\n")
+	    if $drh->{Warn};
+	}
+    # More checks here if wanted ...
+
     # create a 'blank' dbh
-    my $this = DBI::_new_dbh ($drh, {
+    my $dbh = DBI::_new_dbh ($drh, {
 	Name          => $dbname,
 	USER          => $user,
 	CURRENT_USER  => $user,
 	});
 
-    unless ($ENV{UNIFY}) {
-	warn ("UNIFY not set. Unify may fail\n")
-	    if $drh->{Warn};
-	}
-    # More checks here if wanted ...
-
     $user = "" unless defined $user;
     $auth = "" unless defined $auth;
     
     # Connect to the database..
-    DBD::Unify::db::_login ($this, $dbname, $user, $auth)
+    DBD::Unify::db::_login ($dbh, $dbname, $user, $auth)
 	or return undef;
 
-    $this;
+    $dbh;
     } # connect
 
 sub data_sources
 {
     my ($drh) = @_;
-    warn ("\$drh->data_sources() not defined for Unify\n")
-	if $drh->{"warn"};
+    Carp::carp "\$drh->data_sources() not defined for Unify\n"
+	if $drh->{Warn};
     "";
     } # data_sources
 
 ####### Database ##############################################################
 
 package DBD::Unify::db;
+
+$DBD::Unify::db::imp_data_size = 0;
 
 sub do
 {
@@ -124,14 +133,18 @@ sub do
 
 sub prepare
 {
-    my ($dbh, $statement, $attribs) = @_;
+    my ($dbh, $statement, @attribs) = @_;
 
     # create a 'blank' sth
     my $sth = DBI::_new_sth ($dbh, {
-	uni_statement => $statement
+	Statement => $statement,
 	});
 
-    DBD::Unify::st::_prepare ($sth, $statement, $attribs)
+    # Setup module specific data
+#   $sth->STORE ("driver_params" => []);
+#   $sth->STORE ("NUM_OF_PARAMS" => ($statement =~ tr/?//));
+
+    DBD::Unify::st::_prepare ($sth, $statement, @attribs)
 	or return undef;
 
     $sth;
@@ -141,19 +154,53 @@ sub table_info
 {
     my ($dbh) = @_;
     my $sth = $dbh->prepare ("select * from SYS.ACCESSIBLE_TABLES");
-    return unless $sth;
+    $sth or return;
     $sth->execute ();
     $sth;
     } # table_info
 
-sub ping
+#sub ping
+#{
+#    my ($dbh) = @_;
+#    # we know that DBD::Unify prepare does a describe so this will
+#    # actually talk to the server and is this a valid and cheap test.
+#    return 1 if $dbh->prepare ("tables");
+#    return 0;
+#    } # ping
+
+sub STOREx
 {
-    my ($dbh) = @_;
-    # we know that DBD::Unify prepare does a describe so this will
-    # actually talk to the server and is this a valid and cheap test.
-    return 1 if $dbh->prepare ("tables");
-    return 0;
-    } # ping
+    my ($dbh, $attr, $val) = @_;
+
+    if ($attr eq "AutoCommit") {
+#	carp "AutoCommit not supported in DBD::Unify\n"
+#	    if $drh->{Warn};
+	return 1;
+	}
+    if ($attr eq "ScanLevel") {
+	if ($val =~ m/^\d+$/ && $val >= 1 && $val <= 16) {
+	    $dbh->{$attr} = $val;
+	    $dbh->do ("set transaction scan level $val");
+	    return 1;
+	    }
+#	carp "ScanLevel $val invalid, use 1 .. 16\n"
+#	    if $drh->{Warn};
+	return 1;
+	}
+    $dbh->SUPER::STORE ($attr, $val);
+    } # STORE
+
+sub FETCHx
+{
+    my ($dbh, $attr) = @_;
+
+    $attr eq "AutoCommit"		and return 0;
+
+    # ScanLevel can be changed with $dbh->do (), so this is not very reliable
+    $attr eq "ScanLevel"		and return $dbh->{$attr};
+
+    $dbh->SUPER::FETCH ($attr);
+    } # FETCH
 
 1;
 
@@ -211,7 +258,7 @@ the moment).
 
 =item connect
 
-    connect ("DBI:Unify:dbname[;options]" [, user [, password]]);
+    connect ("DBI:Unify:dbname[;options]" [, user [, auth [, attr]]]);
 
 Options to the connection are passed in the datasource
 argument. This argument should contain the database
@@ -219,16 +266,24 @@ name possibly followed by a semicolon and the database options
 which are ignored.
 
 Since Unify database authorisation is done using grant's using the
-user name, the <user> argument me be empty or undef. The password
-field will be used as a default schema. If the password field is empty
+user name, the <user> argument me be empty or undef. The auth
+field will be used as a default schema. If the auth field is empty
 or undefined connect will check for the environment variable $USCHEMA
 to use as a default schema. If neither exists, you will end up in your
 default schema, or if none is assigned, in the schema PUBLIC.
 
-The connect call will result in a connect statement like:
+At the moment none of the attributes documented in DBI's "ATTRIBUTES
+COMMON TO ALL HANDLES" are implemented specifically for the Unify
+DBD driver, but they might have been inhereted from DBI. The I<ChopBlanks>
+attribute is implemented, but defaults to 1 for DBD::Unify.
+The Unify driver supports "ScanLevel" to set the transaction scan
+level to a value between 1 and 16.
+
+The connect call will result in statements like:
 
     CONNECT;
-    SET CURRENT SCHEMA TO password;
+    SET CURRENT SCHEMA TO PUBLIC;  -- if auth = "PUBLIC"
+    SET TRANSACTION SCAN LEVEL 7;  -- if attr has { ScanLevel => 7 }
 
 =over 4
 

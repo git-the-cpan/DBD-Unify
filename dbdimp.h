@@ -12,6 +12,8 @@
 #include <dbtypes.h>
 #include <fdesc.h>
 
+typedef	unsigned char	byte;
+
 /* ------ end of Unify include files ------ */
 
 
@@ -27,14 +29,6 @@ struct imp_drh_st {
 struct imp_dbh_st {
     dbih_dbc_t com;		/* MUST be first element in structure	*/
 
-#ifdef OCI_V8_SYNTAX
-    OCIEnv     *envhp;		/* copy of drh pointer	*/
-    OCIError   *errhp;
-    OCIServer  *srvhp;
-    OCISvcCtx  *svchp;
-    OCISession *authp;
-#endif
-
     int        RowCacheSize;
     };
 
@@ -42,18 +36,9 @@ struct imp_dbh_st {
 struct imp_sth_st {
     dbih_stc_t  com;		/* MUST be first element in structure	*/
 
-#ifdef OCI_V8_SYNTAX
-    OCIEnv     *envhp;		/* copy of dbh pointer	*/
-    OCIError   *errhp;		/* copy of dbh pointer	*/
-    OCIServer  *srvhp;		/* copy of dbh pointer	*/
-    OCISvcCtx  *svchp;		/* copy of dbh pointer	*/
-    OCIStmt    *stmhp;
-    ub2 	stmt_type;	/* OCIAttrGet OCI_ATTR_STMT_TYPE	*/
-    U16		auto_lob;
-    int  	has_lobs;
-#endif
-    int  	disable_finish; /* fetched cursors can core dump in finish */
+    short	id;		/* Statement ID, for dynamic naming	*/
 
+#ifdef NOTYET
     /* Input Details	*/
     char       *statement;	/* sql (see sth_scan)		*/
     HV         *all_params_hv;	/* all params, keyed by name	*/
@@ -75,6 +60,7 @@ struct imp_sth_st {
 
     /* (In/)Out Parameter Details */
     bool        has_inout_params;
+#endif
     };
 #define IMP_STH_EXECUTING	0x0001
 

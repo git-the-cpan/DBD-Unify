@@ -47,7 +47,7 @@ RESTRICTIONS:
 
     # Missing support for datatypes DATE, TIME, TEXT and BINARY in fetch
 
-    # Database attributes not (yet) implemented. (AutoCommit et all)
+    # Most database attributes not (yet) implemented. (AutoCommit et all)
 
     # Statement attributes not (yet) implemented.
 

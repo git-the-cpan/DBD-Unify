@@ -1,3 +1,17 @@
+*** Release 0.02
+
+    Thu 03 Feb 2000 <h.m.brand@hccnet.nl>
+
+	- Support for SCANLEVEL
+	- connect () destroyed $DBPATH :-(
+	- Makefile.PL cleanup
+	- Minor changes to Unify.pm following DBI::DBD docs
+	- ChopBlanks honoured (default on)
+	- sqlError () provides descriptive message
+	- Unlimited number of statement handles :-)
+	  I found out I used outdated books :-(
+	- dbdimp.h cleanup started
+
 *** Release 0.01
 
     Tue 18 Jan 2000 <h.m.brand@hccnet.nl>
