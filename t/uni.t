@@ -263,8 +263,6 @@ $dbh->commit;
 $dbh->do ("drop table xx");
 $dbh->commit;
 
-# Be sure all statement handle are closed (destroyed) BEFORE the disconnect.
-@sts = @sti = (); $sth = undef;
 $dbh->disconnect;
 
 1;

@@ -209,7 +209,8 @@ char      *auth;
     DBIc_set (imp_dbh, DBIcf_AutoCommit, 0);
     DBIc_set (imp_dbh, DBIcf_ChopBlanks, 1);
 
-    imp_dbh->id = n_dbh++;
+    imp_dbh->id       = n_dbh++;
+    imp_dbh->children = newAV ();
 
     unless (auth && *auth)
 	auth = getenv ("USCHEMA");
@@ -230,6 +231,69 @@ char      *auth;
     return (1);
     } /* dbd_db_login */
 
+void dbd_st_destroy ();	/* Forward ref */
+
+/* Untill those babys are able to change their own dirty nappies ... */
+static void change_offspring (imp_dbh)
+imp_dbh_t *imp_dbh;
+{
+    AV *children = imp_dbh->children;
+    I32 n, i;
+
+    unless (children && (n = av_len (children)) >= 0) return;
+
+    for (i = 0; i <= n; i++) {
+	SV **child = av_fetch (children, i, 0);
+	if (child && *child && SvOK (*child)) {
+	    imp_sth_t *imp_sth = (imp_sth_t *)SvIV (*child);
+dbg (2, "-- %02d 0x%08X %02X\n", i, imp_sth, imp_sth->stat);
+	    if (!imp_sth || imp_sth->stat & ST_STAT_OPEN) continue;
+	    dbd_st_destroy (PL_sv_undef, imp_sth);
+	    }
+	}
+    } /* change_offspring */
+
+static void dbd_st_diaper (imp_dbh, imp_sth)
+imp_dbh_t *imp_dbh;
+imp_sth_t *imp_sth;
+{
+    AV   *children = imp_dbh->children;
+    I32  n, i;
+
+    unless (imp_dbh->children) return;
+
+    n = av_len (children);
+    for (i = 0; i <= n; i++) {
+	SV **child = av_fetch (children, i, 0);
+	if (child && *child && !SvOK (*child)) {
+	    /* Don't fuck with the ref-counts, we don't want circular refs
+	     * just store stringified
+	     */
+	    av_store (children, i, newSViv ((IV)imp_sth));
+	    return;
+	    }
+	}
+    av_extend (children, ++n);
+    av_store (children, n, newSViv ((IV)imp_sth));
+    } /* dbd_st_diaper */
+
+static void dbd_st_growup (imp_dbh, imp_sth)
+imp_dbh_t *imp_dbh;
+imp_sth_t *imp_sth;
+{
+    AV   *children = imp_dbh->children;
+    I32  n, i;
+
+    unless (children && (n = av_len (children)) >= 0) return;
+    for (i = 0; i <= n; i++) {
+	SV **child = av_fetch (children, i, 0);
+	if (child && *child && SvOK (*child) && SvIV (*child) == (IV)imp_sth) {
+	    av_store (children, i, &PL_sv_undef);
+	    return;
+	    }
+	}
+    } /* dbd_st_growup */
+
 int dbd_db_commit (dbh, imp_dbh)
 SV        *dbh;
 imp_dbh_t *imp_dbh;
@@ -241,11 +305,7 @@ imp_dbh_t *imp_dbh;
     unless (DBIc_ACTIVE (imp_dbh))
 	return (0);
 
-/*  foreach my (sth, imp_sth) (imp_dbh->children) {
-	imp_sth->stat & ST_STAT_OPEN and next;
-	dbd_st_destroy (sth, imp_sth)
-	}
- */
+    change_offspring (imp_dbh);
 
     /* Check for commit () being called whilst refs to cursors
      * still exists. This needs some more thought.
@@ -271,11 +331,7 @@ imp_dbh_t *imp_dbh;
     unless (DBIc_ACTIVE (imp_dbh))
 	return (0);
 
-/*  foreach my (sth, imp_sth) (imp_dbh->children) {
-	imp_sth->stat & ST_STAT_OPEN and next;
-	dbd_st_destroy (sth, imp_sth)
-	}
- */
+    change_offspring (imp_dbh);
 
     /* Check for rollback () being called whilst refs to cursors
      * still exists. See dbd_db_commit ()
@@ -329,11 +385,9 @@ imp_dbh_t *imp_dbh;
     unless (DBIc_ACTIVE (imp_dbh))
 	return (0);
 
-/*  foreach my (sth, imp_sth) (imp_dbh->children) {
-	imp_sth->stat & ST_STAT_OPEN and next;
-	dbd_st_destroy (sth, imp_sth)
-	}
- */
+    change_offspring (imp_dbh);
+    if (imp_dbh->children) av_undef (imp_dbh->children);
+    imp_dbh->children = (AV *)0;
 
     if (DBIc_ACTIVE_KIDS (imp_dbh) && DBIc_WARN (imp_dbh) && !dirty) {
 	warn ("DBD::Unify::db_disconnect (%s) invalidates %d active cursor(s)",
@@ -633,6 +687,7 @@ SV        *attribs;   /* unused */
     imp_sth->stat = 0;
     imp_sth->fld  = (imp_fld_t *)0;
     imp_sth->prm  = (imp_fld_t *)0;
+    dbd_st_diaper (imp_dbh, imp_sth);
 
     EXEC SQL
 	ALLOCATE   :c_sql_nm
@@ -737,7 +792,6 @@ int       is_inout;
 IV        maxlen;
 {
     auto	int		i;
-    auto	AV		*av;
     auto	SV		*dbh = DBIc_PARENT_H (imp_sth);
 
     D_imp_dbh_from_sth;
@@ -1324,6 +1378,9 @@ dbg (2, " stat");
 	(void)free (imp_sth->prm);
 	imp_sth->prm = (imp_fld_t *)0;
 	}
+
+dbg (2, " growup");
+    dbd_st_growup (imp_dbh, imp_sth);
 
 dbg (2, " impset\n");
     if (DBIc_has (imp_sth, DBIcf_IMPSET))

@@ -33,6 +33,7 @@ struct imp_dbh_st {
     dbih_dbc_t	com;		/* MUST be first element in structure	*/
 
     short	id;		/* DB Handle ID for dynamic naming	*/
+    AV		*children;	/* Keep track of prepared statements	*/
     };
 
 #define ST_STAT_ALLOCP	0x01

@@ -1,6 +1,14 @@
+*** Release 0.11
+
+    Mon 11 Dec 2000 <h.m.brand@hccnet.nl>
+
+	- Nursed the orphins myself :-))
+	  (Destructable statement handles are now destroyed on commit,
+	   rollback and disconnect)
+
 *** Release 0.10
 
-    Thu 26 Oct 2000 <h.m.brand@hccnet.nl>
+    Fri 17 Nov 2000 <h.m.brand@hccnet.nl>
 
 	- Added test for bind_columns (marked as tested in pod)
 	- Moved prepare destruction from finish to DESTROY

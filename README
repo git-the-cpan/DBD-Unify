@@ -73,8 +73,6 @@ RESTRICTIONS:
       Someone (probably me) will have to work through the list of
       documented database- and statement handle attributes
 
-    # Row counts not (yet) implemented.
-
     # Unify only distributes static libraries, so the module might
       become rather big
 
