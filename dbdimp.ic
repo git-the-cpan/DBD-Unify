@@ -14,7 +14,10 @@
  * Main sources were Oracle (1.03), FreeTDS (0.02) and Ingres (0.24, 0.25)
  * whose writers seem to have copied from other sources too ;-)
  *
- * Thanks to all other DBD writers ;-)
+ * Thanks to Tim Bunce for valuable input in his tutorials on O'Reilly's
+ * Open Source Conference 2000 in Monterey, and his code review.
+ *
+ * Thanks to all other DBD writers for making DBI such a success ;-)
  */
 
 #include <unistd.h>
@@ -235,6 +238,15 @@ imp_dbh_t *imp_dbh;
 
     dbg (2, "DBD::Unify::db_commit\n");
 
+    unless (DBIc_ACTIVE (imp_dbh))
+	return (0);
+
+/*  foreach my (sth, imp_sth) (imp_dbh->children) {
+	imp_sth->stat & ST_STAT_OPEN and next;
+	dbd_st_destroy (sth, imp_sth)
+	}
+ */
+
     /* Check for commit () being called whilst refs to cursors
      * still exists. This needs some more thought.
      */
@@ -256,6 +268,15 @@ imp_dbh_t *imp_dbh;
 
     dbg (2, "DBD::Unify::db_rollback\n");
 
+    unless (DBIc_ACTIVE (imp_dbh))
+	return (0);
+
+/*  foreach my (sth, imp_sth) (imp_dbh->children) {
+	imp_sth->stat & ST_STAT_OPEN and next;
+	dbd_st_destroy (sth, imp_sth)
+	}
+ */
+
     /* Check for rollback () being called whilst refs to cursors
      * still exists. See dbd_db_commit ()
      */
@@ -275,22 +296,25 @@ char *statement;
 {
     D_imp_dbh (dbh);
 
+    dbg (2, "DBD::Unify::db_do (\"%s\")\n", statement);
+
+    unless (DBIc_ACTIVE (imp_dbh))
+	return (0);
+
     if (strlen (statement) >= MAX_SQL_LEN) {
 	warn ("DBD::Unify::db_do (\"%.40s ...\") statement too long", statement);
-	return (-1);
+	return (0);
 	}
 
     (void)strcpy (u_sql_do, statement);
-
-    dbg (2, "DBD::Unify::db_do (\"%s\")\n", u_sql_do);
 
     EXEC SQL
 	EXECUTE IMMEDIATE :u_sql_do;
     dbg (3, "    After execute,  sqlcode = %d\n", SQLCODE);
     unless (sqlError (dbh))
-	return (-1);
+	return (0);
 
-    return (0);
+    return (1);
     } /* dbd_db_do */
 
 int dbd_db_disconnect (dbh, imp_dbh)
@@ -302,6 +326,15 @@ imp_dbh_t *imp_dbh;
 
     dbg (2, "DBD::Unify::db_disconnect\n");
 
+    unless (DBIc_ACTIVE (imp_dbh))
+	return (0);
+
+/*  foreach my (sth, imp_sth) (imp_dbh->children) {
+	imp_sth->stat & ST_STAT_OPEN and next;
+	dbd_st_destroy (sth, imp_sth)
+	}
+ */
+
     if (DBIc_ACTIVE_KIDS (imp_dbh) && DBIc_WARN (imp_dbh) && !dirty) {
 	warn ("DBD::Unify::db_disconnect (%s) invalidates %d active cursor(s)",
 	    SvPV (dbh, na), (int)DBIc_ACTIVE_KIDS (imp_dbh));
@@ -312,6 +345,7 @@ imp_dbh_t *imp_dbh;
 	DISCONNECT;
     dbg (3, "    After disconn,  sqlcode = %d\n", SQLCODE);
 
+    imp_dbh->id = 0;
     /* We assume that disconnect will always work
      * since most errors imply already disconnected.
      */
@@ -361,6 +395,9 @@ SV        *valuesv;
     SV     *cachesv = NULL;
     int    on = SvIV (valuesv);
 
+    unless (DBIc_ACTIVE (imp_dbh))
+	return (0);
+
     if (kl == 10 && strEQ (key, "DBDverbose")) {
 	opt_v = on;
 	return (TRUE);
@@ -396,6 +433,9 @@ SV        *keysv;
     SV     *retsv = NULL;
     /* Default to caching results for DBI dispatch quick_FETCH  */
     int    cacheit = TRUE;
+
+    unless (DBIc_ACTIVE (imp_dbh))
+	return (0);
 
     if (kl == 10 && strEQ (key, "DBDverbose")) {
 	retsv = newSViv (opt_v);
@@ -572,21 +612,25 @@ SV        *attribs;   /* unused */
     SV *dbh = DBIc_PARENT_H (imp_sth);
     D_imp_dbh_from_sth;
 
+    unless (DBIc_ACTIVE (imp_dbh))
+	return (0);
+
     if (strlen (statement) >= MAX_SQL_LEN) {
 	warn ("DBD::Unify::st_prepare (\"%.40s ...\") statement too long",
 	    statement);
-	return (-1);
+	return (0);
 	}
 
     unless (imp_sth->id = new_sth_id (dbh))
-	return (-1);
+	return (0);
 
     unless (use_sth_id (dbh, imp_dbh->id, imp_sth->id))
-	return (-1);
+	return (0);
     dbg (2, "DBD::Unify::st_prepare %s (\"%s\")\n", u_sql_nm, statement);
+
     if (imp_sth->statement = (char *)malloc (strlen (statement) + 2))
 	(void)strcpy (imp_sth->statement, statement);
-    imp_sth->open = 0;
+    imp_sth->stat = 0;
     imp_sth->fld  = (imp_fld_t *)0;
     imp_sth->prm  = (imp_fld_t *)0;
 
@@ -597,7 +641,8 @@ SV        *attribs;   /* unused */
 	SQLCODE = 0;		/* re-use it (it'll be the same context)   */
     dbg (3, "    After declare,  sqlcode = %d\n", SQLCODE);
     unless (sqlError (dbh))
-	return (-1);
+	return (0);
+    imp_sth->stat |= ST_STAT_ALLOCC;
 
     (void)strcpy (u_sql_st, statement);
     EXEC SQL
@@ -605,28 +650,30 @@ SV        *attribs;   /* unused */
 	FROM    :u_sql_st;
     dbg (3, "    After prepare,  sqlcode = %d\n", SQLCODE);
     unless (sqlError (dbh))
-	return (-1);
+	return (0);
+    imp_sth->stat |= ST_STAT_ALLOCP;
 
     EXEC SQL
 	ALLOCATE SQL DESCRIPTOR :o_sql_nm
 	WITH MAX 128;
     dbg (3, "    After allocate, sqlcode = %d\n", SQLCODE);
     unless (sqlError (dbh))
-	return (-1);
+	return (0);
+    imp_sth->stat |= ST_STAT_ALLOCO;
 
     EXEC SQL
 	DESCRIBE OUTPUT      :u_sql_nm
 	USING SQL DESCRIPTOR :o_sql_nm;
     dbg (3, "    After describe, sqlcode = %d\n", SQLCODE);
     unless (sqlError (dbh))
-	return (-1);
+	return (0);
 
     EXEC SQL
 	GET   SQL DESCRIPTOR :o_sql_nm
 	:n_sql_st = COUNT;
     dbg (3, "    After count,    sqlcode = %d, count = %d\n", SQLCODE, n_sql_st);
     unless (sqlError (dbh))
-	return (-1);
+	return (0);
     DBIc_NUM_FIELDS (imp_sth) = n_sql_st;
     dbd_fld_describe (dbh, imp_sth, n_sql_st);
 
@@ -658,14 +705,15 @@ SV        *attribs;   /* unused */
 	    WITH MAX                :n_sql_st;
 	dbg (3, "    After allocate, sqlcode = %d\n", SQLCODE);
 	unless (sqlError (dbh))
-	    return (-1);
+	    return (0);
+	imp_sth->stat |= ST_STAT_ALLOCI;
 
 	EXEC SQL
 	    DESCRIBE INPUT          :u_sql_nm
 	    USING    SQL DESCRIPTOR :i_sql_nm;
 	dbg (3, "    After describe, sqlcode = %d\n", SQLCODE);
 	unless (sqlError (dbh))
-	    return (-1);
+	    return (0);
 
 	dbd_prm_describe (dbh, imp_sth, n_sql_st);
 	}
@@ -695,7 +743,7 @@ IV        maxlen;
     D_imp_dbh_from_sth;
 
     unless (use_sth_id (dbh, imp_dbh->id, imp_sth->id))
-	return (-1);
+	return (0);
     dbg (2, "DBD::Unify::st_bind %s\n", u_sql_nm);
 
     unless (SvNIOK (param))
@@ -706,19 +754,19 @@ IV        maxlen;
         croak ("DBD::Unify::st_bind: parameter outside range 1..%d",
             DBIc_NUM_PARAMS (imp_sth));
 
-    dbg (2, "\tActive: %d, open: %d\n", DBIc_ACTIVE (imp_sth), imp_sth->open);
-    if (DBIc_ACTIVE (imp_sth) && imp_sth->open) {	/* Re-execute	*/
+    dbg (2, "\tActive: %d, stat: %04X\n", DBIc_ACTIVE (imp_sth), imp_sth->stat);
+    if (DBIc_ACTIVE (imp_sth) && imp_sth->stat & ST_STAT_OPEN) { /* Re-execute	*/
 	EXEC SQL
 	    CLOSE :c_sql_nm;
 	dbg (3, "    After close,    sqlcode = %d\n", SQLCODE);
 	unless (sqlError (dbh))
-	    return (-1);
-	imp_sth->open = 0;
+	    return (0);
+	imp_sth->stat &= ~ST_STAT_OPEN;
 	}
 
     unless (imp_sth->prm || dbd_prm_describe (dbh, imp_sth, DBIc_NUM_PARAMS (imp_sth))) {
 	croak ("Describe failed during %s->BIND ()", SvPV (sth, na));
-	return (-1);
+	return (0);
 	}
 
     dbg (3, "     Field %3d: ", fix);
@@ -741,7 +789,7 @@ IV        maxlen;
 	    VALUE :fix
 		INDICATOR = -1;
 	unless (sqlError (dbh))
-	    return (-1);
+	    return (0);
 	}
     else {
 	auto	STRLEN	l;
@@ -764,12 +812,13 @@ IV        maxlen;
 			DATA      = :fdC,
 			INDICATOR = 0;
 		unless (sqlError (dbh))
-		    return (-1);
+		    return (0);
 		break;
 		}
 
 	    case SQLFLOAT:
 		dbg (3, "FLOAT %2d.%1d: ", fln, fpr);
+		/* unless looks_like_number (...) carp (...) */
 		fdF = (float)SvNV (value);
 		dbg (3, "%8.4f", fdF);
 		EXEC SQL
@@ -778,12 +827,13 @@ IV        maxlen;
 			DATA      = :fdF,
 			INDICATOR = 0;
 		unless (sqlError (dbh))
-		    return (-1);
+		    return (0);
 		break;
 
 	    case SQLREAL:
 	    case SQLDBLPREC:
 		dbg (3, "DOUBL %1d.%2d: ", fln, fpr);
+		/* unless looks_like_number (...) carp (...) */
 		fdD = (double)SvNV (value);
 		dbg (3, "%8.4f", fdD);
 		EXEC SQL
@@ -792,7 +842,7 @@ IV        maxlen;
 			DATA      = :fdD,
 			INDICATOR = 0;
 		unless (sqlError (dbh))
-		    return (-1);
+		    return (0);
 		break;
 
 	    case SQLAMOUNT:
@@ -805,7 +855,7 @@ IV        maxlen;
 			DATA      = :fdF,
 			INDICATOR = 0;
 		unless (sqlError (dbh))
-		    return (-1);
+		    return (0);
 		break;
 
 	    case SQLHUGEAMT:
@@ -818,7 +868,7 @@ IV        maxlen;
 			DATA      = :fdD,
 			INDICATOR = 0;
 		unless (sqlError (dbh))
-		    return (-1);
+		    return (0);
 		break;
 
 	    case SQLDATE:
@@ -835,6 +885,7 @@ IV        maxlen;
 	    case SQLDECIMAL:
 	    case SQLINTEGER:
 		dbg (3, "NUMERIC %2d: ", fpr);
+		/* unless looks_like_number (...) carp (...) */
 		fdL = (int)SvIV (value);
 		dbg (3, "%8d", fdL);
 		EXEC SQL
@@ -843,11 +894,12 @@ IV        maxlen;
 			DATA      = :fdL,
 			INDICATOR = 0;
 		unless (sqlError (dbh))
-		    return (-1);
+		    return (0);
 		break;
 
 	    case SQLSMINT:
 		dbg (3, "NUMERIC %2d: ", fpr);
+		/* unless looks_like_number (...) carp (...) */
 		fdS = (short)SvIV (value);
 		/* Should I warn if integer > 32767 ? */
 		dbg (3, "%8d", fdS);
@@ -857,7 +909,7 @@ IV        maxlen;
 			DATA      = :fdS,
 			INDICATOR = 0;
 		unless (sqlError (dbh))
-		    return (-1);
+		    return (0);
 		break;
 
 	    case SQLNOTYPE:
@@ -884,16 +936,16 @@ imp_sth_t *imp_sth;
     D_imp_dbh_from_sth;
 
     unless (use_sth_id (dbh, imp_dbh->id, imp_sth->id))
-	return (-1);
+	return (0);
     dbg (2, "DBD::Unify::st_execute %s\n", u_sql_nm);
 
-    if (DBIc_ACTIVE (imp_sth) && imp_sth->open) {	/* Re-execute	*/
+    if (DBIc_ACTIVE (imp_sth) && imp_sth->stat & ST_STAT_OPEN) { /* Re-execute	*/
 	EXEC SQL
 	    CLOSE :c_sql_nm;
 	dbg (3, "    After close,    sqlcode = %d\n", SQLCODE);
 	unless (sqlError (dbh))
-	    return (-1);
-	imp_sth->open = 0;
+	    return (0);
+	imp_sth->stat &= ~ST_STAT_OPEN;
 	}
 
     if (DBIc_NUM_FIELDS (imp_sth) == 0) {
@@ -925,11 +977,11 @@ imp_sth_t *imp_sth;
 	}
     dbg (3, "    After open,     sqlcode = %d\n", SQLCODE);
     unless (sqlError (dbh))
-	return (-1);
-    imp_sth->open = 1;
+	return (0);
+    imp_sth->stat |= ST_STAT_OPEN;
 
     DBIc_ACTIVE_on (imp_sth);
-    return (0);
+    return (1);
     } /* dbd_st_execute */
 
 AV *dbd_st_fetch (sth, imp_sth)
@@ -963,6 +1015,7 @@ imp_sth_t *imp_sth;
 
     if (SQLCODE == UEEOSCN || SQLCODE == -UEEOSCN) {
 	dbg (3, "     Fetch done (end of scan)\n");
+	(void)dbd_st_finish (sth, imp_sth);
 	return (Nullav);
 	}
 
@@ -1144,18 +1197,9 @@ int dbd_st_rows (sth, imp_sth)
 SV        *sth;
 imp_sth_t *imp_sth;
 {
-    /* If using sqlca, Am I?
-    EXEC SQL BEGIN DECLARE SECTION;
-    int newrowid;
-    int numrows;
-    EXEC SQL END   DECLARE SECTION;
 
-    if (SQLA_HAS (SQL_ROWID))	/* After insert ...
-	newrowid = sqlca.rowid;
-    if (SQLA_HAS (SQL_NROWS))	/* After insert, delete, update ...
-	numrows = sqlca.nrows;
-    */
-    NYI ("st_rows");
+    if (SQLCA_HAS (SQL_NROWS))	/* After insert, delete, update ...	*/
+	return (sqlca.nrows);
     return (0);
     } /* dbd_st_rows */
 
@@ -1169,7 +1213,7 @@ imp_sth_t *imp_sth;
     D_imp_dbh_from_sth;
 
     unless (use_sth_id (dbh, imp_dbh->id, imp_sth->id))
-	return (-1);
+	return (0);
     dbg (3, "DBD::Unify::st_finish %s\n", u_sql_nm);
 
     if (DBIc_ACTIVE (imp_sth)) {
@@ -1177,56 +1221,95 @@ imp_sth_t *imp_sth;
 	    CLOSE :c_sql_nm;
 	dbg (3, "    After close,    sqlcode = %d\n", SQLCODE);
 	unless (sqlError (dbh))
-	    return (-1);
-	imp_sth->open = 0;
+	    return (0);
 
-	/*	UNIFY design flaw? (method doesn't exist)
-	EXEC SQL
-	    DEALLOCATE PREPARE    :c_sql_nm;
-	dbg (3, "    After deallocC, sqlcode = %d\n", SQLCODE);
-	unless (sqlError (dbh))
-	    return (-1);
-	*/
-
-	EXEC SQL
-	    DEALLOCATE DESCRIPTOR :o_sql_nm;
-	dbg (3, "    After deallocO, sqlcode = %d\n", SQLCODE);
-	unless (sqlError (dbh))
-	    return (-1);
-
-	if (DBIc_NUM_PARAMS (imp_sth) > 0) {
-	    EXEC SQL
-		DEALLOCATE DESCRIPTOR :i_sql_nm;
-	    dbg (3, "    After deallocI, sqlcode = %d\n", SQLCODE);
-	    unless (sqlError (dbh))
-		return (-1);
-	    }
-
-	EXEC SQL
-	    DEALLOCATE PREPARE    :u_sql_nm;
-	dbg (3, "    After deallocU, sqlcode = %d\n", SQLCODE);
-	unless (sqlError (dbh))
-	    return (-1);
-
+	imp_sth->stat &= ~ST_STAT_OPEN;
 	DBIc_ACTIVE_off (imp_sth);
 	}
 
-    return (clr_sth_id (dbh, imp_sth->id));
+    return (1);
     } /* dbd_st_finish */
 
 void dbd_st_destroy (sth, imp_sth)
 SV        *sth;
 imp_sth_t *imp_sth;
 {
+    SV *dbh = DBIc_PARENT_H (imp_sth);
     dTHR;
     D_imp_dbh_from_sth;
 
-    dbg (2, "DBD::Unify::st_destroy\n");
+    dbg (2, "DBD::Unify::st_destroy '%s'\n", imp_sth->statement);
 
-    if (DBIc_ACTIVE (imp_sth)) {
-	/* DBIc_ACTIVE_off (imp_sth); */
-	warn ("DBD::Unify::st_destroy: Handle still active, will finish first\n");
-	dbd_st_finish (sth, imp_sth);
+    unless (use_sth_id (dbh, imp_dbh->id, imp_sth->id))
+	return;
+
+    dbg (2, "DBD::Unify::st_free %s\n", u_sql_nm);
+
+    if (DBIc_ACTIVE (imp_sth) || imp_sth->stat & ST_STAT_OPEN) {
+     /* warn ("DBD::Unify::st_destroy: Handle still active, will finish first\n");
+	*/
+	EXEC SQL
+	    CLOSE :c_sql_nm;
+	dbg (3, "    After close,    sqlcode = %d\n", SQLCODE);
+	unless (sqlError (dbh))
+	    return;
+	imp_sth->stat &= ~ST_STAT_OPEN;
+	}
+dbg (2, " allocc");
+    if (imp_sth->stat & ST_STAT_ALLOCC) {
+	/*	UNIFY design flaw? (method doesn't exist)
+	EXEC SQL
+	    DEALLOCATE PREPARE    :c_sql_nm;
+	dbg (3, "    After deallocC, sqlcode = %d\n", SQLCODE);
+	if (SQLCODE == -22) SQLCODE = 0;
+	unless (sqlError (dbh))
+	    return;
+	*/
+	imp_sth->stat &= ~ST_STAT_ALLOCC;
+	}
+
+dbg (2, " alloco");
+    if (imp_sth->stat & ST_STAT_ALLOCO) {
+	EXEC SQL
+	    DEALLOCATE DESCRIPTOR :o_sql_nm;
+	dbg (3, "    After deallocO, sqlcode = %d\n", SQLCODE);
+	if (SQLCODE == -22) SQLCODE = 0;
+	unless (sqlError (dbh))
+	    return;
+	imp_sth->stat &= ~ST_STAT_ALLOCO;
+	}
+
+dbg (2, " alloci");
+    if (DBIc_NUM_PARAMS (imp_sth) > 0) {
+	if (imp_sth->stat & ST_STAT_ALLOCI) {
+	    EXEC SQL
+		DEALLOCATE DESCRIPTOR :i_sql_nm;
+	    dbg (3, "    After deallocI, sqlcode = %d\n", SQLCODE);
+	    if (SQLCODE == -22) SQLCODE = 0;
+	    unless (sqlError (dbh))
+		return;
+	    imp_sth->stat &= ~ST_STAT_ALLOCI;
+	    }
+	DBIc_NUM_PARAMS (imp_sth) = 0;
+	}
+
+dbg (2, " allocp");
+    if (imp_sth->stat & ST_STAT_ALLOCP) {
+	EXEC SQL
+	    DEALLOCATE PREPARE    :u_sql_nm;
+	dbg (3, "    After deallocU, sqlcode = %d\n", SQLCODE);
+	if (SQLCODE == -2124) SQLCODE = 0;
+	unless (sqlError (dbh))
+	    return;
+	imp_sth->stat &= ~ST_STAT_ALLOCP;
+	}
+
+dbg (2, " stat");
+    if (imp_sth->stat)
+	warn ("DBD::Unify::st_free: Handle stat not clear: 0x%02X\n", imp_sth->stat);
+    else {
+	clr_sth_id (dbh, imp_sth->id);
+	imp_sth->id = 0;
 	}
 
     if (imp_sth->statement) {
@@ -1242,8 +1325,14 @@ imp_sth_t *imp_sth;
 	imp_sth->prm = (imp_fld_t *)0;
 	}
 
+dbg (2, " impset\n");
     if (DBIc_has (imp_sth, DBIcf_IMPSET))
 	DBIc_IMPSET_off (imp_sth);
+
+    dbg (2, "DBD::Unify::st 0x%08X 0x%04x 0x%04X 0x%08X 0x%08X 0x%08X\n",
+	imp_sth->com, imp_sth->id, imp_sth->stat, imp_sth->statement,
+	imp_sth->fld, imp_sth->prm);
+    dbg (2, "DBD::Unify::st destroyed\n");
     } /* dbd_st_destroy */
 
 int dbd_st_blob_read (sth, imp_sth, field, offset, len, destrv, destoffset)
@@ -1293,8 +1382,8 @@ SV        *keysv;
     if (kl == 13 && strEQ (key, "NUM_OF_PARAMS"))	/* handled by DBI */
 	return (Nullsv);	
 
-    unless (imp_sth->fld) {
-	}
+    unless (imp_sth->fld)
+	return (Nullsv);	
 
     i = DBIc_NUM_FIELDS (imp_sth);
 
@@ -1325,7 +1414,9 @@ SV        *keysv;
 	AV *av = newAV ();
 	retsv = newRV (sv_2mortal ((SV*)av));
 	while (--i >= 0)
-	    av_store (av, i, newSViv (imp_sth->fld[i].fpr));
+	    av_store (av, i, newSViv (imp_sth->fld[i].ftp == 1
+	    				? imp_sth->fld[i].fln
+	    				: imp_sth->fld[i].fpr));
 	}
     else
     if (kl == 5 && strEQ (key, "SCALE")) {

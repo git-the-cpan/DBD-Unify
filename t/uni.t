@@ -2,9 +2,9 @@
 
 use DBI qw(:sql_types);
 
-$verbose =   0;	# unless defined $verbose;
+$verbose =   0;
 $max_sth = 473;	# Arbitrary limit test count
-$ntests  =  33 + $max_sth;
+$ntests  =  41 + $max_sth;
 
 $ENV{MAXSCAN}       = $max_sth + 1;
 $ENV{MXOPENCURSORS} = 2 * $max_sth;
@@ -64,7 +64,7 @@ $t = 1;
 # CREATE THE TABLE
 $dbh->do (join " " =>
     "create table xx (",
-    "    xs numeric       (4),",
+    "    xs numeric       (4) not null,",
     "    xl numeric       (9),",
     "    xc char          (5),",
     "    xf float            ,",
@@ -84,7 +84,7 @@ my $sth = $dbh->prepare ("insert into xx values (?,?,?,?,?,?,?)");
 foreach my $v ( 10 .. 18 ) {
     $sth->execute ($v, 1000 + $v, "$v", $v + .1, $v + .2, $v + .3, 1000.4 + $v);
     }
-$sth->finish ();
+$sth->finish;
 $dbh->commit;
 
 $" = ", ";
@@ -98,52 +98,80 @@ my %result_ok = (
     7 => "7, 1007, '7', 7.100000, 7.200000, 7.30, 1007.40",
     );
 $sth = $dbh->prepare ("select * from xx where xs between 4 and 7 or xs = 0");
-$sth->execute ();
+# Check the internals
+{   local $" = ":";
+    my %attr = (
+	NAME      => "xs:xl:xc:xf:xr:xa:xh",
+	uni_types => "5:2:1:8:7:-4:-6",
+	TYPE      => "5:2:1:8:7:-4:-6",	# Still UNI_TYPE
+	PRECISION => "4:9:5:64:32:9:15",
+	SCALE     => "0:0:0:0:0:2:2",
+	NULLABLE  => "0:1:1:1:1:1:1",	# Does not work in Unify (yet)
+	);
+    foreach my $attr (qw(NAME uni_types TYPE PRECISION SCALE)) {
+	ok ("attr $attr", "@{$sth->{$attr}}" eq $attr{$attr});
+	}
+    }
+$sth->execute;
 while (my ($xs, $xl, $xc, $xf, $xr, $xa, $xh) = $sth->fetchrow_array ()) {
     ok ("fetchrow_array",
 	$result_ok{$xs} eq "$xs, $xl, '$xc', $xf, $xr, $xa, $xh");
     }
-$sth->finish ();
+$sth->finish;
 
 $sth = $dbh->prepare ("select xl, xc from xx where xs = 8");
-$sth->execute ();
-my $ref = $sth->fetchrow_arrayref ();
+$sth->execute;
+my $ref = $sth->fetchrow_arrayref;
 ok ("fetchrow_arrayref",
     "@$ref" eq "1008, 8");
-$sth->finish ();
+$sth->finish;
+# test the reexec
+$sth->execute;
+$ref = $sth->fetchrow_arrayref;
+ok ("fetchrow_arrayref",
+    "@$ref" eq "1008, 8");
+$sth->finish;
 
 $sth = $dbh->prepare ("select xl from xx where xs = 9");
-$sth->execute ();
-$ref = $sth->fetchrow_hashref ();
+$sth->execute;
+$ref = $sth->fetchrow_hashref;
 ok ("fetchrow_hashref",
     keys %$ref == 1 && exists $ref->{xl} && $ref->{xl} == 1009);
-$sth->finish ();
+$sth->finish;
 
 # SELECT FROM THE TABLE, NESTED
 $sth = $dbh->prepare ("select xs from xx where xs in (3, 5)");
-$sth->execute ();
+$sth->execute;
 while (my ($xs) = $sth->fetchrow_array ()) {
     my $sth2 = $dbh->prepare ("select xl from xx where xs = @{[$xs - 1]}");
-    $sth2->execute ();
+    $sth2->execute;
     if ($sth2) {
 	while (my ($xl) = $sth2->fetchrow_array ()) {
 	    ok ("fetch nested",
 		($xs == 3 || $xs == 5) && $xl == $xs + 999);
 	    }
 	}
-    $sth2->finish ();
+    $sth2->finish;
     }
-$sth->finish ();
+$sth->finish;
 
 # SELECT FROM THE TABLE, POSITIONAL
 $sth = $dbh->prepare ("select xs from xx where xs = ?");
 foreach my $xs (3 .. 5) {
     $sth->execute ($xs);
-    my ($xc) = $sth->fetchrow_array ();
+    my ($xc) = $sth->fetchrow_array;
     ok ("fetch positional",
 	$xs == $xc);
     }
-$sth->finish ();
+# Check the bind_columns
+{   my $xs = 0;
+    $sth->bind_columns (\$xs);
+    $sth->execute (3);
+    $sth->fetchrow_arrayref;
+    ok ("bind_columns",
+    	$xs == 3);
+    }
+$sth->finish;
 
 # UPDATE THE TABLE
 $dbh->do ("update xx set xf = xf + .05 where xs = 5");
@@ -152,19 +180,26 @@ $dbh->commit;
 # UPDATE THE TABLE, POSITIONAL
 $sth = $dbh->prepare ("update xx set xa = xa + .05 where xs = ?");
 $sth->execute (4);
-$sth->finish ();
+$sth->finish;
 $dbh->commit;
+
+# UPDATE THE TABLE, MULTIPLE RECORDS, and COUNT
+$sth = $dbh->prepare ("update xx set xa = xa + .05 where xs = 5 or xs = 6");
+$sth->execute;
+ok ("rows method", $sth->rows == 2);
+$sth->finish;
+$dbh->rollback;
 
 # UPDATE THE TABLE, POSITIONAL TWICE
 $sth = $dbh->prepare ("update xx set xc = ? where xs = ?");
 $sth->execute ("33", 3);
-$sth->finish ();
+$sth->finish;
 $dbh->commit;
 
 # UPDATE THE TABLE, POSITIONAL TWICE, NON-KEY
 $sth = $dbh->prepare ("update xx set xc = ? where xf = 10.1 and xl = ?");
 $sth->execute ("12345", 1010);
-$sth->finish ();
+$sth->finish;
 $dbh->commit;
 
 $sth = $dbh->prepare ("select * from xx where xs = ?");
@@ -175,7 +210,7 @@ $sth->execute ("-1");
 $sth->execute ("  1");
 $sth->execute (" -1");
 #$sth->execute ("x");	# Should warn, which it does.
-$sth->finish ();
+$sth->finish;
 
 # Check final state
 my @rec = (
@@ -200,12 +235,12 @@ my @rec = (
     "18, 1018, 18, 18.100000, 18.200001, 18.30, 1018.40",
     );
 $sth = $dbh->prepare ("select * from xx order by xs");
-$sth->execute ();
+$sth->execute;
 while (my @f = $sth->fetchrow_array ()) {
     ok ("final state",
 	"@f" eq shift @rec);
     }
-$sth->finish ();
+$sth->finish;
 
 $dbh->do ("delete xx");
 $dbh->commit;
@@ -218,7 +253,7 @@ my @sts = map { $dbh->prepare ("select xs, xl from xx where xs = ?") }
     (0 .. $max_sth);
 foreach my $i (0 .. $max_sth) {
     $sts[$i]->execute ($i);
-    my ($xs, $xl) = $sts[$i]->fetchrow_array ();
+    my ($xs, $xl) = $sts[$i]->fetchrow_array;
     ok ("max sth", $xs == $i && $xl == 1234);
     }
 map { $_->finish () } @sts, @sti;
@@ -228,6 +263,8 @@ $dbh->commit;
 $dbh->do ("drop table xx");
 $dbh->commit;
 
+# Be sure all statement handle are closed (destroyed) BEFORE the disconnect.
+@sts = @sti = (); $sth = undef;
 $dbh->disconnect;
 
 1;

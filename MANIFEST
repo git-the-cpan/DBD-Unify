@@ -5,7 +5,11 @@ ic2ec
 Makefile.PL
 MANIFEST
 README
-t/dbi.t
+t/base.t
+t/general.t
+t/long.t
+t/reauth.t
+t/uni.t
 Unify.h
 Unify.pm
 Unify.xs

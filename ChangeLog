@@ -1,3 +1,28 @@
+*** Release 0.10
+
+    Thu 26 Oct 2000 <h.m.brand@hccnet.nl>
+
+	- Added test for bind_columns (marked as tested in pod)
+	- Moved prepare destruction from finish to DESTROY
+	- Added test for execute after finish
+	- Changed internal return codes from -1 (failure) to 0
+	- Added a few tests (borrowed from Oracle)
+	- Checked for connection (and fail on some actions if not connected)
+	- Enabled 'ping' method
+	- Stripped SQL comments
+	- Implemented $sth->rows method + test
+
+*** Release 0.09
+
+    Tue 02 Aug 2000 <h.m.brand@hccnet.nl>
+
+	- Added doc for use of stdarg in README
+	- Added tests for statement handle attributes
+	- Added string length to sth->{PRECISION}
+	- Small README changes of what's done
+	- table_info () now returns the fields in the expected order
+	- Corrected small typo's in pod
+
 *** Release 0.08
 
     Mon 19 May 2000 <h.m.brand@hccnet.nl>

@@ -5,7 +5,7 @@ This is the Database Driver for the Unify family of database products.
 It has been ported and tested on DataServer 6.3AB, but this does not
 mean it might not work on U2000 databases.
 
-It uses DBI 1.13 and perl5.00503, but will probably work with DBI 0.93
+It uses DBI 1.14 and perl5.00503, but will probably work with DBI 0.93
 or higher and perl 5.004 or higher.
 
    Copyright (c) 1999,2000  H.Merijn Brand <h.m.brand@hccnet.nl>
@@ -35,9 +35,27 @@ BUILDING, TESTING AND INSTALLING:
     it might get lost, so be aware!
 
     I've encountered some problems using <varargs.h> on builds where perl
-    decided to use <stdarg.h>. This is not automated yet, look at the AIX
-    #ifdef's in the top section of dbdimp.ic if it turns into a problem.
+    decided to use <stdarg.h>, so I try to switch to varargs by force. If
+    problems persist, maybe rewriting dbg () to:
 
+	   static void dbg (level, fmt, ap)
+	   int  level;
+	   char *fmt;
+	   char *ap;
+	   {
+	       auto	va_list	args;
+
+	       if (level > dbis->debug && level > opt_v)
+		   return;
+
+	       va_start (args, ap);
+	       (void)vfprintf (DBILOGFP, fmt, args);
+	       (void)fflush   (DBILOGFP);
+	       va_end (args);
+	       } /* dbg */
+
+    might help for those deficit systems.
+    
     As with all modules: Patches are welcome.
 
 RESTRICTIONS:
@@ -48,10 +66,12 @@ RESTRICTIONS:
     # Missing support for datatypes DATE, TIME, TEXT and BINARY in fetch
       and positional parameters
 
-    # Most database attributes not (yet) implemented. (AutoCommit et all)
+    # Some database attributes not (yet) implemented. (AutoCommit et all)
 
     # Statement attributes not (yet) fully implemented. Those needed for
       $sth->fetchrow_hashref () now work, but STORE_attrib () doesn't.
+      Someone (probably me) will have to work through the list of
+      documented database- and statement handle attributes
 
     # Row counts not (yet) implemented.
 
@@ -64,13 +84,15 @@ TO DO:
 
     # Add more tests
 
+    # Implement all implementable handle attributes (->{CursorName} is
+      probably the easiest to start with ;-)
+
     # Investigate and implement 3-arg versions of $sth->bind_param ()
 
     # Investigate and implement 2- and 3-arg version of $dbh->do ()
 
-    # Investigate if SvIOK (value) and SvNOK (value) have counterparts
-      that REALLY check for IOK or NOK, even if string value has not been
-      used as numeric value before in st_bind ()
+    # Investigate if looks_as_number () should be used in st_bind ().
+      Comments are in where it should.
 
     # Investigate if LIKE and SHLIKE operators in positional parameters
       indeed do not work (I've seen that, but found no time yet to look
@@ -78,5 +100,3 @@ TO DO:
 
     # Try finding a way to open several different Unify databases at the
       same time for parallel processing.
-
-    # Check realloc for sth_id assignment (increased to 128 default for now)

@@ -24,6 +24,7 @@ DBD::Unify - DBI driver for Unify database systems
 			 ChopBlanks => 1,
 			 ScanLevel  => 2,
 			 });
+ $dbh = DBI->connect_cached (...);                   # NYT
  $dbh->do ($statement);
  $dbh->do ($statement, \%attr);                      # NYT
  $dbh->do ($statement, \%attr, @bind);               # NYT
@@ -50,7 +51,7 @@ DBD::Unify - DBI driver for Unify database systems
  $sth->bind_param ($p_num, $bind_value, $bind_type); # NYT
  $sth->bind_param ($p_num, $bind_value, \%attr);     # NYT
  $sth->bind_col ($col_num, \$col_variable);          # NYT
- $sth->bind_columns (@list_of_refs_to_vars_to_bind); # NYT
+ $sth->bind_columns (@list_of_refs_to_vars_to_bind);
  $sth->execute (3);
  @row = $sth->fetchrow_array;
  $sth->finish;
@@ -66,6 +67,10 @@ DBD::Unify - DBI driver for Unify database systems
  $stt = $dbh->state;
  $stt = $sth->state;
 
+ For large DB fetches the combination $sth->bind_columns ()
+ with $sth->fetchrow_arrayref is the fastest (DBI
+ documentation).
+
 =cut
 
 # The POD text continues at the end of the file.
@@ -78,7 +83,7 @@ use DBI 1.12;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.08";
+$VERSION = "0.10";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -161,6 +166,7 @@ $DBD::Unify::db::imp_data_size = 0;
 sub do
 {
     my ($dbh, $statement, $attribs, @params) = @_;
+    # Next two might use base class: DBD::_::do (@_);
     Carp::carp "DBD::Unify::\$dbh->do () attribs unused\n" if $attribs;
     Carp::carp "DBD::Unify::\$dbh->do () params unused\n"  if @params;
     DBD::Unify::db::_do ($dbh, $statement);
@@ -170,6 +176,12 @@ sub prepare
 {
     my ($dbh, $statement, @attribs) = @_;
 
+    # Strip comments
+    $statement = join "" => map {
+	my $s = $_;
+	$s =~ m/^'.*'$/ or $s =~ s/(--.*)$//m;
+	$s;
+	} split m/('[^']*')/ => $statement;
     # create a 'blank' sth
     my $sth = DBI::_new_sth ($dbh, {
 	Statement => $statement,
@@ -188,21 +200,22 @@ sub prepare
 sub table_info
 {
     my ($dbh) = @_;
-    my $sth = $dbh->prepare ("select * from SYS.ACCESSIBLE_TABLES");
+    my $sth = $dbh->prepare (
+	"select '', OWNR, TABLE_NAME, TABLE_TYPE, RDWRITE ".
+	"from   SYS.ACCESSIBLE_TABLES");
     $sth or return;
     $sth->execute ();
     $sth;
     } # table_info
 
-#sub ping
-#{
-#    my ($dbh) = @_;
-#    # we know that DBD::Unify prepare does a describe so this will
-#    # actually talk to the server and is this a valid and cheap test.
-#    return 1 if $dbh->prepare ("tables");
-#    return 0;
-#    } # ping
+sub ping
+{
+    my $dbh = shift;
+    $dbh->prepare ("select * from SYS.UNIQ") or return 0;
+    return 1;
+    } # ping
 
+# STORE and FETCH are implemented in dbdimp.ic
 sub STOREx
 {
     my ($dbh, $attr, $val) = @_;
@@ -234,7 +247,7 @@ sub FETCHx
     # ScanLevel can be changed with $dbh->do (), so this is not very reliable
     $attr eq "ScanLevel"		and return $dbh->{$attr};
 
-    $dbh->SUPER::FETCH ($attr);
+    DBD::Unify::st::_FETCH ($dbh, $attr);
     } # FETCH
 
 1;

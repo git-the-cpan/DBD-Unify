@@ -35,12 +35,17 @@ struct imp_dbh_st {
     short	id;		/* DB Handle ID for dynamic naming	*/
     };
 
+#define ST_STAT_ALLOCP	0x01
+#define ST_STAT_ALLOCC	0x02
+#define ST_STAT_ALLOCI	0x04
+#define ST_STAT_ALLOCO	0x08
+#define ST_STAT_OPEN	0x10
 /* Define sth implementor data structure */
 struct imp_sth_st {
     dbih_stc_t	com;		/* MUST be first element in structure	*/
 
     short	id;		/* Statement ID, for dynamic naming	*/
-    short	open;		/* Cursor open/closed			*/
+    short	stat;		/* Cursor open/closed			*/
     char	*statement;	/* Statement text			*/
 
     imp_fld_t	*fld;		/* Add knowledge about the fields	*/
