@@ -46,6 +46,8 @@ sub connect_db ($$)
 	print "Testing: DBI->connect ('$dbname'):\n";
 
     my $dbh = DBI->connect ($dbname, undef, "", {
+	RaiseError => 1,
+	PrintError => 1,
 	AutoCommit => 0,
 	ScanLevel  => 7,
 	ChopBlanks => 1,
@@ -76,30 +78,33 @@ foreach my $v ( 1 .. 18 ) {
     $dbh->do ("insert into xx values ($v,100$v,'$v',$v.1,$v.2)");
     }
 $dbh->commit;
-$sth = $dbh->prepare ("select * from xx where xs between 4 and 8 or xs = 0");
-$sth and $sth->execute ();
-if ($sth) {
-    while (my ($xs, $xl, $xc, $xf, $xa) = $sth->fetchrow_array ()) {
-	print STDERR "\t[[$xs, $xl, '$xc', $xf, $xa]]\n";
-	}
-    }
-$sth and $sth->finish ();
 
-$sth = $dbh->prepare ("select xs from xx where  xs in (3, 5)");
-$sth and $sth->execute ();
-if ($sth) {
-    while (my ($xs) = $sth->fetchrow_array ()) {
-	my $sth2 = $dbh->prepare ("select xl from xx where xs = @{[$xs - 1]}");
-	$sth2 and $sth2->execute ();
-	if ($sth2) {
-	    while (my ($xl) = $sth2->fetchrow_array ()) {
-		print STDERR "\t<< $xs => $xl >>\n";
-		}
-	    }
-	$sth2 and $sth2->finish ();
-	}
+$sth = $dbh->prepare ("select * from xx where xs between 4 and 8 or xs = 0");
+$sth->execute ();
+while (my ($xs, $xl, $xc, $xf, $xa) = $sth->fetchrow_array ()) {
+    print STDERR "\t[[$xs, $xl, '$xc', $xf, $xa]]\n";
     }
-$sth and $sth->finish ();
+$sth->finish ();
+
+$sth = $dbh->prepare ("select xs from xx where xs in (3, 5)");
+$sth->execute ();
+while (my ($xs) = $sth->fetchrow_array ()) {
+    my $sth2 = $dbh->prepare ("select xl from xx where xs = @{[$xs - 1]}");
+    $sth2->execute ();
+    if ($sth2) {
+	while (my ($xl) = $sth2->fetchrow_array ()) {
+	    print STDERR "\t<< $xs => $xl >>\n";
+	    }
+	}
+    $sth2->finish ();
+    }
+$sth->finish ();
+
+$sth = $dbh->prepare ("select xs from xx where xs = ?");
+$sth->execute (3);
+my ($xc) = $sth->fetchrow_array ();
+print STDERR "\t<< 3 => '$xc' >>\n";
+$sth->finish ();
 
 $dbh->do ("drop table xx");
 $dbh->commit;

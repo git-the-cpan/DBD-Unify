@@ -16,10 +16,7 @@ or higher and perl 5.004 or higher.
 See the CHANGES file for a complete history
 
 This is a very basic port for Unify. At the moment of writing, this DBD
-only supports one singe statement handle at the same time. This has to be
-fixed, but The E/SQL syntax of unify does not support variable cursor names,
-so it probably has to be a fixed set of routines dealing with separate
-arbitrary maximum number of name sets.
+does not support all DBI elements, methods and attributes.
 
 DATE, TIME, TEXT and BINARY fields are not (yet) supported, though it is
 easy to change (code is supplied, but returns undef). Since we do not use
@@ -37,15 +34,18 @@ BUILDING, TESTING AND INSTALLING:
     the test fails, table xx might still exist. If it already exists,
     it might get lost, so be aware!
 
+    I've encountered some problems using <varargs.h> on builds where perl
+    decided to use <stdarg.h>. This is not automated yet, look at the AIX
+    #ifdef's in the top section of dbdimp.ic if it turns into a problem.
+
     As with all modules: Patches are welcome.
 
 RESTRICTIONS:
 
     # No documentation (yet)
 
-    # Only 1 (one) statement handler at the time
-
     # Missing support for datatypes DATE, TIME, TEXT and BINARY in fetch
+      and positional parameters
 
     # Most database attributes not (yet) implemented. (AutoCommit et all)
 

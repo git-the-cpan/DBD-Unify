@@ -25,9 +25,16 @@ DBD::Unify - DBI driver for Unify database systems
     $dbh->rollback ();
     $dbh->disconnect ();
 
-    $sth = $dbh->prepare ($statement)
+    @row = $dbh->selectrow_array ($statement);
+
+    $sth = $dbh->prepare ($statement);
     $sth->execute ();
-    @row = $sth->fetchrow_array ()
+    @row = $sth->fetchrow_array ();
+    $sth->finish ();
+
+    $sth = $dbh->prepare ($statement);	# W/ placeholders like where field = ?
+    $sth->execute (3);
+    @row = $sth->fetchrow_array ();
     $sth->finish ();
     ...
 
@@ -43,7 +50,7 @@ use DBI 1.12;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.02";
+$VERSION = "0.03";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -322,7 +329,7 @@ After a commit or rollback the cursors are all ->finish'ed, ie. they
 are closed and the DBI/DBD will warn if an attempt is made to fetch
 from them.
 
-A future version of DBD::Unify wil possibly re-prepare the statement.
+A future version of DBD::Unify might re-prepare the statement.
 
 =back
 
@@ -337,8 +344,7 @@ The DBI documentation in L<DBI>, other DBD documentation.
 =head1 AUTHORS
 
 DBI/DBD was developed by Tim Bunce, <Tim.Bunce@ig.co.uk>, who also
-developed the DBD::Oracle that is the closest we have to a generic DBD
-implementation.
+developed the DBD::Oracle.
 
 H.Merijn Brand, <h.m.brand@hccnet.nl> developed the DBD::Unify extension.
 

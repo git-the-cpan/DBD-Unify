@@ -1,3 +1,11 @@
+*** Release 0.03
+
+    Wed 09 Feb 2000 <h.m.brand@hccnet.nl>
+
+	- Changes to Makefile.PL to support AIX
+	- Forced prefer varargs over stdarg in dbdimp.ic :-(
+	- Implemented positional parameters :-)
+
 *** Release 0.02
 
     Thu 03 Feb 2000 <h.m.brand@hccnet.nl>
