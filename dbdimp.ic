@@ -420,7 +420,8 @@ int dbd_db_STORE_attrib (SV *dbh, imp_dbh_t *imp_dbh, SV *keysv, SV *valuesv)
 	DBIc_set (imp_dbh, DBIcf_AutoCommit, 0);	/* Allways off	*/
 	return (TRUE);
 	}
-    if (kl ==  9 && strEQ (key, "ScanLevel")) {
+    if ((kl == 13 && strEQ (key, "uni_scanlevel")) ||
+	(kl ==  9 && strEQ (key, "ScanLevel"))) {
 	auto int val = SvIV (valuesv);
 	dbg (2, "DBD::Unify::dbd_db_STORE (ScanLevel = %d)\n", val);
 	if (val < 1 || val > 16)

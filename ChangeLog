@@ -1,3 +1,10 @@
+*** Release 0.31
+
+    Tue 16 Mar 2004 <h.m.brand@hccnet.nl>
+
+	- Tested against DBI-1.41 through 1.42
+	- ScanLevel to uni_scanlevel
+
 *** Release 0.30
 
     Tue 02 Mar 2004 <h.m.brand@hccnet.nl>

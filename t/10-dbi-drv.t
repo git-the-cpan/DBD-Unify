@@ -59,7 +59,8 @@ ok (0, $rv == 0);
 $rv = DBI->trace (0, $trcfile);
 ok (0, $rv == 1);
 open TRC, "< $trcfile";
-ok (0, <TRC> =~ m/\btrace level set to 1\b/);
+my $line = <TRC>;
+ok (0, $line =~ m/\btrace level set to (?:0x0*)?1\b/);
 
 # =============================================================================
 

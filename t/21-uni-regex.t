@@ -39,12 +39,12 @@ sub connect_db ($)
 	print "Testing: DBI->connect ('$dbname'):\n";
 
     my $dbh = DBI->connect ($dbname, undef, "", {
-	RaiseError  => 1,
-	PrintError  => 1,
-	AutoCommit  => 0,
-	ScanLevel   => 7,
-	ChopBlanks  => 1,
-	uni_verbose => $verbose,
+	RaiseError    => 1,
+	PrintError    => 1,
+	AutoCommit    => 0,
+	ChopBlanks    => 1,
+	uni_verbose   => $verbose,
+	uni_scanlevel => 7,
 	});
     unless ($dbh) {
         print "1..0\n";

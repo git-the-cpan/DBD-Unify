@@ -20,10 +20,10 @@ DBD::Unify - DBI driver for Unify database systems
  # man DBI for explanation of each method (there's more than listed here)
 
  $dbh = DBI->connect ("DBI:Unify:[\$dbname]", "", $schema, {
-			 AutoCommit  => 0,
-			 ChopBlanks  => 1,
-			 ScanLevel   => 2,
-			 uni_verbose => 0,
+			 AutoCommit    => 0,
+			 ChopBlanks    => 1,
+			 uni_verbose   => 0,
+			 uni_scanlevel => 2,
 			 });
  $dbh = DBI->connect_cached (...);                   # NYT
  $dbh->do ($statement);
@@ -82,7 +82,7 @@ use DBI 1.19;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.30";
+$VERSION = "0.31";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -263,41 +263,6 @@ sub ping
     return 1;
     } # ping
 
-# STORE and FETCH are implemented in dbdimp.ic
-sub STOREx
-{
-    my ($dbh, $attr, $val) = @_;
-
-    if ($attr eq "AutoCommit") {
-#	Carp::carp "AutoCommit not supported in DBD::Unify\n"
-#	    if $drh->{Warn};
-	return 1;
-	}
-    if ($attr eq "ScanLevel") {
-	if ($val =~ m/^\d+$/ && $val >= 1 && $val <= 16) {
-	    $dbh->{$attr} = $val;
-	    $dbh->do ("set transaction scan level $val");
-	    return 1;
-	    }
-#	Carp::carp "ScanLevel $val invalid, use 1 .. 16\n"
-#	    if $drh->{Warn};
-	return 1;
-	}
-    $dbh->SUPER::STORE ($attr, $val);
-    } # STORE
-
-sub FETCHx
-{
-    my ($dbh, $attr) = @_;
-
-    $attr eq "AutoCommit"		and return 0;
-
-    # ScanLevel can be changed with $dbh->do (), so this is not very reliable
-    $attr eq "ScanLevel"		and return $dbh->{$attr};
-
-    DBD::Unify::st::_FETCH ($dbh, $attr);
-    } # FETCH
-
 1;
 
 ####### Statement #############################################################
@@ -368,7 +333,7 @@ At the moment none of the attributes documented in DBI's "ATTRIBUTES
 COMMON TO ALL HANDLES" are implemented specifically for the Unify
 DBD driver, but they might have been inhereted from DBI. The I<ChopBlanks>
 attribute is implemented, but defaults to 1 for DBD::Unify.
-The Unify driver supports "ScanLevel" to set the transaction scan
+The Unify driver supports "uni_scanlevel" to set the transaction scan
 level to a value between 1 and 16 and "uni_verbose" to set DBD specific
 debugging, allowing to show only massages from DBD-Unify without using
 the default DBI->trace () call.
@@ -377,7 +342,7 @@ The connect call will result in statements like:
 
     CONNECT;
     SET CURRENT SCHEMA TO PUBLIC;  -- if auth = "PUBLIC"
-    SET TRANSACTION SCAN LEVEL 7;  -- if attr has { ScanLevel => 7 }
+    SET TRANSACTION SCAN LEVEL 7;  -- if attr has { uni_scanlevel => 7 }
 
 local database
 
