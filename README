@@ -1,0 +1,61 @@
+DBD::Unify --  an Unify interface for Perl 5 using DBI.
+
+This is the Database Driver for the Unify family of database products.
+
+It has been ported and tested on DataServer 6.3AB, but this does not
+mean it might not work on U2000 databases.
+
+It uses DBI 1.13 and perl5.00503, but will probably work with DBI 0.93
+or higher and perl 5.004 or higher.
+
+   Copyright (c) 1999,2000  H.Merijn Brand <h.m.brand@hccnet.nl>
+
+   You may distribute under the terms of either the GNU General Public
+   License or the Artistic License, as specified in the Perl README file.
+
+See the CHANGES file for a complete history
+
+This is a very basic port for Unify. At the moment of writing, this DBD
+only supports one singe statement handle at the same time. This has to be
+fixed, but The E/SQL syntax of unify does not support variable cursor names,
+so it probably has to be a fixed set of routines dealing with separate
+arbitrary maximum number of name sets.
+
+DATE, TIME, TEXT and BINARY fields are not (yet) supported, though it is
+easy to change (code is supplied, but returns undef). Since we do not use
+these types with our databases, it's up to you to supply patches.
+
+BUILDING, TESTING AND INSTALLING:
+
+    This will only work if DBI is installed on a recent version of perl ;-)
+
+	   # perl Makefile.PL
+	   # make test
+	   # make install
+
+    Make test will use the current database and create a table "xx". If
+    the test fails, table xx might still exist. If it already exists,
+    it might get lost, so be aware!
+
+    As with all modules: Patches are welcome.
+
+RESTRICTIONS:
+
+    # No documentation (yet)
+
+    # Only 1 (one) statement handler at the time
+
+    # Missing support for datatypes DATE, TIME, TEXT and BINARY in fetch
+
+    # Database attributes not (yet) implemented. (AutoCommit et all)
+
+    # Statement attributes not (yet) implemented.
+
+    # Row counts not (yet) implemented.
+
+    # Unify only distributes static libraries, so the module might
+      become rather big
+
+TO DO:
+
+    # Remove as many restrictions as possible ;-)

@@ -1,0 +1,12 @@
+#!/usr/bin/perl -pw
+
+use strict;
+
+# No changes (yet)
+
+# This will change dbdimp.ic to dbdimp.ec so many (static) routines
+# will be created for multiple statement handlers
+# ic2ec might accept an optional count for the maximum number of
+# concurrent handlers
+
+1;
