@@ -56,7 +56,7 @@ DBD::Unify - DBI driver for Unify database systems
  @row = $sth->fetchrow_array;
  $sth->finish;
 
- $cnt = $sth->rows;                                  # NYT
+ $cnt = $sth->rows;
 
  $sql = $dbh->quote ($string);
 
@@ -83,7 +83,7 @@ use DBI 1.12;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.11";
+$VERSION = "0.20";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -127,8 +127,8 @@ sub connect
     my ($drh, $dbname, $user, $auth) = @_;
 
     unless ($ENV{UNIFY} && -d $ENV{UNIFY} && -x _) {
-	carp ("\$UNIFY not set or invalid. UNIFY may fail\n")
-	    if $drh->{Warn};
+	$drh->{Warn} and
+	    Carp::carp "\$UNIFY not set or invalid. UNIFY may fail\n";
 	}
     # More checks here if wanted ...
 
@@ -152,8 +152,8 @@ sub connect
 sub data_sources
 {
     my ($drh) = @_;
-    Carp::carp "\$drh->data_sources() not defined for Unify\n"
-	if $drh->{Warn};
+    $drh->{Warn} and
+	Carp::carp "\$drh->data_sources () not defined for Unify\n";
     "";
     } # data_sources
 
@@ -204,7 +204,7 @@ sub table_info
 	"select '', OWNR, TABLE_NAME, TABLE_TYPE, RDWRITE ".
 	"from   SYS.ACCESSIBLE_TABLES");
     $sth or return;
-    $sth->execute ();
+    $sth->execute;
     $sth;
     } # table_info
 
@@ -221,7 +221,7 @@ sub STOREx
     my ($dbh, $attr, $val) = @_;
 
     if ($attr eq "AutoCommit") {
-#	carp "AutoCommit not supported in DBD::Unify\n"
+#	Carp::carp "AutoCommit not supported in DBD::Unify\n"
 #	    if $drh->{Warn};
 	return 1;
 	}
@@ -231,7 +231,7 @@ sub STOREx
 	    $dbh->do ("set transaction scan level $val");
 	    return 1;
 	    }
-#	carp "ScanLevel $val invalid, use 1 .. 16\n"
+#	Carp::carp "ScanLevel $val invalid, use 1 .. 16\n"
 #	    if $drh->{Warn};
 	return 1;
 	}
@@ -266,8 +266,8 @@ DBD::Unify is an extension to Perl which allows access to Unify
 databases. It is built on top of the standard DBI extension an
 implements the methods that DBI require.
 
-This document describes the differences between the "generic" DBD and
-DBD::Unify.
+This document describes the differences between the "generic" DBD
+and DBD::Unify.
 
 =head2 Extensions/Changes
 
@@ -353,13 +353,14 @@ connecting to a new database, even if the old one is closed following
 every rule of precaution.
 
 To be safe in closing a handle of all sorts, undef it after it is done with,
-it will than be destroyed.
+it will than be destroyed. (As of 0.12 this is tried internally for handles
+that proved to be finished)
 
- my $dbh = DBI-connect (...);
+ my $dbh = DBI->connect (...);
  my $sth = $dbh->prepare (...);
  :
- $sth->finish ();     $sth = undef;
- $dbh->disconnect (); $dbh = undef;
+ $sth->finish;     undef $sth;
+ $dbh->disconnect; undef $dbh;
 
 =item *
 
@@ -377,9 +378,9 @@ commit and rollback invalidates open cursors
 DBD::Unify does warn when a commit or rollback is isssued on a $dbh
 with open cursors.
 
-Possibly a commit/rollback should also undef the $sth's. (This should
-probably be done in the DBI-layer as other drivers will have the same
-problems).
+Possibly a commit/rollback/disconnect should also undef the $sth's.
+(This should probably be done in the DBI-layer as other drivers will
+have the same problems).
 
 After a commit or rollback the cursors are all ->finish'ed, ie. they
 are closed and the DBI/DBD will warn if an attempt is made to fetch
@@ -396,10 +397,10 @@ Far from complete ...
 =head1 SEE ALSO
 
 The DBI documentation in L<DBI>, a lot of web pages, some very good, the
-Perl 5 DBI FAQ (http://www.symbolstone.org/technology/perl/DBI), other
-DBD modules' documentation (DBD-Oracle is probably the most complete), the
+Perl 5 DBI Home page (http://dbi.perl.org/), other DBD modules'
+documentation (DBD-Oracle is probably the most complete), the
 comp.lang.perl.modules newsgroup and the dbi-users mailing list
-(http://www.isc.org/dbi-lists.html).
+(mailto:dbi-users-help@perl.org)
 
 =head1 AUTHORS
 

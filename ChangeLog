@@ -1,3 +1,20 @@
+*** Release 0.20
+
+    Mon 26 Feb 2001 <h.m.brand@hccnet.nl>
+
+	- Illegal memory access in debugging statement (oops)
+	- Internet references (requested by Tim)
+
+*** Release 0.12
+
+    Wed 10 Jan 2001 <h.m.brand@hccnet.nl>
+
+	- AIX nurse was killing the kids. Simplified nursing.
+	- Removed dTHR calls
+	- Added connect.t to move auto-destroy from general.t (which is now
+	  more destroy safe)
+	- Small tweaks to Unify.pm pod
+
 *** Release 0.11
 
     Mon 11 Dec 2000 <h.m.brand@hccnet.nl>

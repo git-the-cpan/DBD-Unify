@@ -6,7 +6,7 @@ use strict;
 
 use ExtUtils::MakeMaker;
 
-use DBI 0.93;
+use DBI 1.13;
 use DBI::DBD;
 
 print "\nConfiguring DBD::Unify ...\n\n";
@@ -23,6 +23,9 @@ WriteMakefile (
     VERSION_FROM  =>   "Unify.pm",
     AUTHOR        =>   "H.Merijn Brand <h.m.brand\@hccnet.nl>",
     ABSTRACT_FROM =>   "Unify.pm",
+
+    PREREQ_PM     => { DBI      => "1.13",
+		       },
 
     dist          => { COMPRESS => "gzip -9f",
 		       SUFFIX   => ".gz",

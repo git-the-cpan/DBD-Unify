@@ -162,7 +162,6 @@ char      *auth;
     char statement[128];
     EXEC SQL END   DECLARE SECTION;
     char *opt;
-    dTHR;
 
     dbg (2, "DBD::Unify::db_login: dbname: %s\n", dbname);
 
@@ -209,8 +208,9 @@ char      *auth;
     DBIc_set (imp_dbh, DBIcf_AutoCommit, 0);
     DBIc_set (imp_dbh, DBIcf_ChopBlanks, 1);
 
-    imp_dbh->id       = n_dbh++;
-    imp_dbh->children = newAV ();
+    imp_dbh->id        = n_dbh++;
+    imp_dbh->children  = (imp_sth_t **)0;
+    imp_dbh->nchildren = 0;
 
     unless (auth && *auth)
 	auth = getenv ("USCHEMA");
@@ -233,23 +233,24 @@ char      *auth;
 
 void dbd_st_destroy ();	/* Forward ref */
 
-/* Untill those babys are able to change their own dirty nappies ... */
-static void change_offspring (imp_dbh)
+/* Until those babys are able to change their own dirty nappies ... */
+static void change_offspring (dbh, imp_dbh)
+SV *dbh;
 imp_dbh_t *imp_dbh;
 {
-    AV *children = imp_dbh->children;
-    I32 n, i;
+    imp_sth_t **children;
+    int       i, n;
 
-    unless (children && (n = av_len (children)) >= 0) return;
+    /* Make this function extremely precautious ;-P */
+    unless (imp_dbh)                      return;
+    unless (children = imp_dbh->children) return;
+    unless ((n = imp_dbh->nchildren) > 0) return;
 
-    for (i = 0; i <= n; i++) {
-	SV **child = av_fetch (children, i, 0);
-	if (child && *child && SvOK (*child)) {
-	    imp_sth_t *imp_sth = (imp_sth_t *)SvIV (*child);
-dbg (2, "-- %02d 0x%08X %02X\n", i, imp_sth, imp_sth->stat);
-	    if (!imp_sth || imp_sth->stat & ST_STAT_OPEN) continue;
-	    dbd_st_destroy (PL_sv_undef, imp_sth);
-	    }
+    for (i = 0; i < n; i++) {
+	imp_sth_t *imp_sth = children[i];
+dbg (2, "-- %03d/%03d 0x%08X %02X\n",i+1,n,imp_sth,imp_sth?imp_sth->stat:0);
+	if (!imp_sth || imp_sth->stat & ST_STAT_OPEN) continue;
+	dbd_st_destroy (dbh, imp_sth);
 	}
     } /* change_offspring */
 
@@ -257,40 +258,31 @@ static void dbd_st_diaper (imp_dbh, imp_sth)
 imp_dbh_t *imp_dbh;
 imp_sth_t *imp_sth;
 {
-    AV   *children = imp_dbh->children;
-    I32  n, i;
+    imp_sth_t **children = imp_dbh->children;
+    int       i, n = imp_dbh->nchildren;
 
-    unless (imp_dbh->children) return;
-
-    n = av_len (children);
-    for (i = 0; i <= n; i++) {
-	SV **child = av_fetch (children, i, 0);
-	if (child && *child && !SvOK (*child)) {
-	    /* Don't fuck with the ref-counts, we don't want circular refs
-	     * just store stringified
-	     */
-	    av_store (children, i, newSViv ((IV)imp_sth));
-	    return;
-	    }
+    for (i = 0; i < n; i++) {
+	if (children[i]) continue;
+	children[i] = imp_sth;
+	return;
 	}
-    av_extend (children, ++n);
-    av_store (children, n, newSViv ((IV)imp_sth));
+    if (n) imp_dbh->children = (imp_sth_t **)realloc ((void *)imp_dbh->children, (imp_dbh->nchildren + 1) * sizeof (imp_sth_t *));
+    else   imp_dbh->children = (imp_sth_t **) malloc (sizeof (imp_sth_t *));
+    if    (imp_dbh->children) imp_dbh->children[imp_dbh->nchildren++] = imp_sth;
+    else  imp_dbh->nchildren = 0;
     } /* dbd_st_diaper */
 
 static void dbd_st_growup (imp_dbh, imp_sth)
 imp_dbh_t *imp_dbh;
 imp_sth_t *imp_sth;
 {
-    AV   *children = imp_dbh->children;
-    I32  n, i;
+    imp_sth_t **children = imp_dbh->children;
+    int       i, n = imp_dbh->nchildren;
 
-    unless (children && (n = av_len (children)) >= 0) return;
     for (i = 0; i <= n; i++) {
-	SV **child = av_fetch (children, i, 0);
-	if (child && *child && SvOK (*child) && SvIV (*child) == (IV)imp_sth) {
-	    av_store (children, i, &PL_sv_undef);
-	    return;
-	    }
+	unless (children[i] == imp_sth) continue;
+	imp_dbh->children[i] = 0;
+	return;
 	}
     } /* dbd_st_growup */
 
@@ -298,14 +290,12 @@ int dbd_db_commit (dbh, imp_dbh)
 SV        *dbh;
 imp_dbh_t *imp_dbh;
 {
-    dTHR;
-
     dbg (2, "DBD::Unify::db_commit\n");
 
     unless (DBIc_ACTIVE (imp_dbh))
 	return (0);
 
-    change_offspring (imp_dbh);
+    change_offspring (dbh, imp_dbh);
 
     /* Check for commit () being called whilst refs to cursors
      * still exists. This needs some more thought.
@@ -324,14 +314,12 @@ int dbd_db_rollback (dbh, imp_dbh)
 SV        *dbh;
 imp_dbh_t *imp_dbh;
 {
-    dTHR;
-
     dbg (2, "DBD::Unify::db_rollback\n");
 
     unless (DBIc_ACTIVE (imp_dbh))
 	return (0);
 
-    change_offspring (imp_dbh);
+    change_offspring (dbh, imp_dbh);
 
     /* Check for rollback () being called whilst refs to cursors
      * still exists. See dbd_db_commit ()
@@ -378,16 +366,18 @@ SV        *dbh;
 imp_dbh_t *imp_dbh;
 {
     int transaction_active;
-    dTHR;
 
     dbg (2, "DBD::Unify::db_disconnect\n");
 
     unless (DBIc_ACTIVE (imp_dbh))
 	return (0);
 
-    change_offspring (imp_dbh);
-    if (imp_dbh->children) av_undef (imp_dbh->children);
-    imp_dbh->children = (AV *)0;
+    change_offspring (dbh, imp_dbh);
+    if (imp_dbh->nchildren) {
+	if (imp_dbh->children) free ((void *)imp_dbh->children);
+	imp_dbh->children  = (imp_sth_t **)0;
+	imp_dbh->nchildren = 0;
+	}
 
     if (DBIc_ACTIVE_KIDS (imp_dbh) && DBIc_WARN (imp_dbh) && !dirty) {
 	warn ("DBD::Unify::db_disconnect (%s) invalidates %d active cursor(s)",
@@ -410,8 +400,6 @@ int dbd_discon_all (drh, imp_drh)
 SV        *drh;
 imp_drh_t *imp_drh;
 {
-    dTHR;
-
     if (!dirty && !SvTRUE (perl_get_sv ("DBI::PERL_ENDING", 0))) {
 	sv_setiv (DBIc_ERR (imp_drh), (IV)1);
 	sv_setpv (DBIc_ERRSTR (imp_drh), "disconnect_all not implemented");
@@ -986,7 +974,6 @@ imp_sth_t *imp_sth;
 {
     SV *dbh = DBIc_PARENT_H (imp_sth);
 
-    dTHR;
     D_imp_dbh_from_sth;
 
     unless (use_sth_id (dbh, imp_dbh->id, imp_sth->id))
@@ -1262,7 +1249,6 @@ SV        *sth;
 imp_sth_t *imp_sth;
 {
     SV *dbh = DBIc_PARENT_H (imp_sth);
-    dTHR;
 
     D_imp_dbh_from_sth;
 
@@ -1289,7 +1275,6 @@ SV        *sth;
 imp_sth_t *imp_sth;
 {
     SV *dbh = DBIc_PARENT_H (imp_sth);
-    dTHR;
     D_imp_dbh_from_sth;
 
     dbg (2, "DBD::Unify::st_destroy '%s'\n", imp_sth->statement);
@@ -1415,7 +1400,6 @@ SV        *valuesv;
     char   *key = SvPV (keysv,kl);
     SV     *cachesv = NULL;
     int    on = SvTRUE (valuesv);
-    dTHR;
 
     /*
     dbg (3, "DBD::Unify::st_STORE(%s)->{%s}\n", imp_sth->name, key);

@@ -6,6 +6,7 @@ Makefile.PL
 MANIFEST
 README
 t/base.t
+t/connect.t
 t/general.t
 t/long.t
 t/reauth.t

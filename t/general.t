@@ -29,25 +29,25 @@ unless ($dbh) {
 
 print "1..$tests\n";
 
-my ($sth, $p1, $p2, $tmp);
-
 # also test preparse doesn't get confused by ? :1
-$sth = $dbh->prepare (q{
+my $sth = $dbh->prepare (q{
     select * from UNIQ -- ? :1
     });
 ok (0, $sth->execute);
 ok (0, $sth->{NUM_OF_FIELDS});
-eval { $p1=$sth->{NUM_OFFIELDS_typo} };
+eval { my $typo = $sth->{NUM_OFFIELDS_typo} };
 ok (0, $@ =~ /attribute/);
 ok (0, $sth->{Active});
 ok (0, $sth->finish);
 ok (0, !$sth->{Active});
+undef $sth;		# Force destroy
 
 $sth = $dbh->prepare ("select * from UNIQ");
 ok (0, $sth->execute);
 ok (0, $sth->{Active});
 1 while ($sth->fetch);	# fetch through to end
 ok (0, !$sth->{Active});
+undef $sth;
 
 eval {
     $dbh->{RaiseError} = 1;
