@@ -82,7 +82,7 @@ use DBI 1.19;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.24";
+$VERSION = "0.25";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -215,7 +215,7 @@ sub table_info ($;$$$$)
     my $where = @where ? " where @where" : "";
     my $sth = $dbh->prepare (
 	"select '', OWNR, TABLE_NAME, TABLE_TYPE, RDWRITE ".
-	"from   SYS.ACCESSIBLE_TABLES".
+	"from   SYS.ACCESSIBLE_TABLES ".
 	$where);
     $sth or return;
     $sth->execute;

@@ -11,16 +11,20 @@ See the ChangeLog file for a complete history
 
 REQUIREMENTS
 
-    It has been ported and tested on DataServer 6.3AB, 6.3BE, 8.1CC, and
-    8.1CE, but this does not mean it might not work on U2000 databases.
+    It has been ported and tested on DataServer 6.3AB, 6.3BE, 8.1CC, 8.1CE,
+    8.1DAB, and 8.2AC, but this does not mean it might not work on U2000
+    databases or other DataServer releases.
 
-    It uses DBI 1.23 and perl5.6.1 or perl5.7.3, but might get it to work
-    with DBI 0.93 or higher and perl 5.005 or higher. But then again, in
-    that case you should consider an upgrade.
+    It uses DBI 1.32 and perl5.6.1, perl-5.8.0, or perl5.9.0, but might get
+    it to work with DBI 0.93 or higher and perl 5.005 or higher. But then
+    again, in that case you should consider an upgrade.
 
-    If you plan to use DataServer 8.1 database in Unicode encoding (UTF-8),
-    use perl5.8.0 or up (or at least 5.7.3), which has full Unicode 3.2
-    support.
+    If you plan to use DataServer 8.1 or higher database in Unicode encoding
+    (UTF-8), use perl5.8.0 or up (or at least 5.7.3), which has full Unicode
+    3.2 support.
+
+    One user has reported success with perl 5.005_03 on SunOS 5.7 with
+    gcc-2.7.2.2, DBI-1.30, DBD-Unify-0.24 with DataServer-7.2.
 
 BUILDING, TESTING AND INSTALLING:
 
@@ -36,6 +40,24 @@ BUILDING, TESTING AND INSTALLING:
     U2000ul.a and S2000ul.a over U2000u.a and S2000u.a resulting in smaller
     binaries with local-only support.
 
+    If you are using gcc, it might be needed to explicitly tell Unify to
+    use it, because ucc defaults to cc (always):
+
+	   # export UPPNAME=/usr/local/pa20_32/bin/gcc
+	   # export UCCNAME=/usr/local/pa20_32/bin/gcc
+	   # export ULDNAME=/usr/local/pa20_32/bin/gcc
+
+    Another approach would be:
+
+	   # ln -s /usr/local/pa20_32/bin/gcc cc
+	   # export PATH=".:$PATH"
+
+    Now you need to build the objects:
+
+	   # make
+
+    And if that succeeds, run the tests:
+
 	   # make test
 
     Make test will use the current database and create a table "xx". If
@@ -50,7 +72,8 @@ BUILDING, TESTING AND INSTALLING:
     directly (e.g. 'perl t/11-dbi-dbh.t'). Note that the t/21-uni-regex test
     skips the test for 'SHLIKE' because this will cause core dumps. Advice:
     do *not* use SHLIKE, but use REGLIKE (which is quite easy to convert to
-    from SHLIKE)
+    from SHLIKE). All versions above A/SQL 8.2AC should have this problem
+    solved.
 
     If you happen to have a DataServer only product (no accell), make
     will probably complain about a missing ACCELL.a from Makefile.PL
@@ -118,13 +141,16 @@ RESTRICTIONS:
     # Unify only distributes static libraries, so the module might
       become rather big
 
-    # At least until 6.3, Unify library pool does *NOT* allow more then
+    # At least until 8.2, Unify library pool does *NOT* allow more then
       one different database open at the same time from within the same
       process (even when the first database has correctly disconnected
       and closed) :-((
 
       This problem is known  with Unify and registered in their bug
-      database as 'usb100963: disconnect'
+      database as 'usb100963: disconnect'. Unify Sacramento has finally
+      located the bug's source after yet again I reported this in
+      bug report 22960. DBD-Unify 0.25 and up have a workaround, and
+      Unify promised to fix it.
 
 TO DO:
 
@@ -164,7 +190,7 @@ ACKNOWLEDGEMENTS
 
 COPYRIGHT AND LICENSE
 
-    Copyright (C) 2002 H.Merijn Brand
+    Copyright (C) 1999-2003 H.Merijn Brand
 
     This library is free software; you can redistribute it and/or modify
     it under the same terms as Perl itself. 

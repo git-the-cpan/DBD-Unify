@@ -11,7 +11,7 @@ use DBI::DBD;
 
 print "\nConfiguring DBD::Unify ...\n\n";
 
-$^O =~ m/^(?: VMS | MsWin32 )$/x and
+$^O =~ m/^(?: VMS | MsWin32 | cygwin )$/x and
     die "OS type $^O is not (yet) supported";
 
 use vars qw($UNIFY $UNITOP $ULIBS);

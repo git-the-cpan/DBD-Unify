@@ -1,3 +1,12 @@
+*** Release 0.25
+
+    Fri 21 Feb 2003 <h.m.brand@hccnet.nl>
+
+	- Many README additions and updates
+	- Tested against DBI-1.32
+	- Workaround for problem number 22960: re-connecting to the
+	  same database fails in DS 8.2 and below
+
 *** Release 0.24
 
     Mon 28 May 2002 <h.m.brand@hccnet.nl>

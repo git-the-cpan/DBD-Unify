@@ -186,6 +186,9 @@ int dbd_db_login (SV *dbh, imp_dbh_t *imp_dbh,
 	CONNECT;
     dbg (3, "    After connect,    sqlcode = %d\n", SQLCODE);
 
+    /* Problem number 22960: 2nd Connect to same database fails */
+    if (SQLCODE == -254) SQLCODE = 0;
+
     unless (sqlError (dbh))
 	return (0);
 
@@ -1393,7 +1396,7 @@ void dbd_st_destroy (SV *sth, imp_sth_t *imp_sth)
 	    return;
 	imp_sth->stat &= ~ST_STAT_OPEN;
 	}
-dbg (2, " allocc");
+    dbg (6, " destroy allocc");
     if (imp_sth->stat & ST_STAT_ALLOCC) {
 	/*	UNIFY design flaw? (method doesn't exist)
 	EXEC SQL
@@ -1406,7 +1409,7 @@ dbg (2, " allocc");
 	imp_sth->stat &= ~ST_STAT_ALLOCC;
 	}
 
-dbg (2, " alloco");
+    dbg (6, " destroy alloco");
     if (imp_sth->stat & ST_STAT_ALLOCO) {
 	EXEC SQL
 	    DEALLOCATE DESCRIPTOR :o_sql_nm;
@@ -1417,7 +1420,7 @@ dbg (2, " alloco");
 	imp_sth->stat &= ~ST_STAT_ALLOCO;
 	}
 
-dbg (2, " alloci");
+    dbg (6, " destroy alloci");
     if (DBIc_NUM_PARAMS (imp_sth) > 0) {
 	if (imp_sth->stat & ST_STAT_ALLOCI) {
 	    EXEC SQL
@@ -1431,7 +1434,7 @@ dbg (2, " alloci");
 	DBIc_NUM_PARAMS (imp_sth) = 0;
 	}
 
-dbg (2, " allocp");
+    dbg (6, " destroy allocp");
     if (imp_sth->stat & ST_STAT_ALLOCP) {
 	EXEC SQL
 	    DEALLOCATE PREPARE    :u_sql_nm;
@@ -1442,7 +1445,7 @@ dbg (2, " allocp");
 	imp_sth->stat &= ~ST_STAT_ALLOCP;
 	}
 
-dbg (2, " stat");
+    dbg (6, " destroy stat");
     if (imp_sth->stat)
 	warn ("DBD::Unify::st_free: Handle stat not clear: 0x%02X\n", imp_sth->stat);
     else {
@@ -1463,10 +1466,10 @@ dbg (2, " stat");
 	imp_sth->prm = (imp_fld_t *)0;
 	}
 
-dbg (2, " growup");
+    dbg (6, " destroy growup");
     dbd_st_growup (imp_dbh, imp_sth);
 
-dbg (2, " impset\n");
+    dbg (6, " destroy impset\n");
     if (DBIc_has (imp_sth, DBIcf_IMPSET))
 	DBIc_IMPSET_off (imp_sth);
 
