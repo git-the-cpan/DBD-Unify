@@ -2,6 +2,7 @@ ChangeLog
 dbdimp.h
 dbdimp.ic
 ic2ec
+installu.pl
 Makefile.PL
 MANIFEST
 README

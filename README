@@ -2,7 +2,7 @@ DBD::Unify --  a Unify interface for Perl 5 using DBI.
 
 This is the Database Driver for the Unify family of database products.
 
-   Copyright (c) 1999,2001  H.Merijn Brand <h.m.brand@hccnet.nl>
+   Copyright (c) 1999-2002  H.Merijn Brand <h.m.brand@hccnet.nl>
 
    You may distribute under the terms of either the GNU General Public
    License or the Artistic License, as specified in the Perl README file.
@@ -11,11 +11,16 @@ See the ChangeLog file for a complete history
 
 REQUIREMENTS
 
-    It has been ported and tested on DataServer 6.3AB and 6.3BE, but this
-    does not mean it might not work on U2000 databases.
+    It has been ported and tested on DataServer 6.3AB, 6.3BE, 8.1CC, and
+    8.1CE, but this does not mean it might not work on U2000 databases.
 
-    It uses DBI 1.19 and perl5.6.1, but will probably work with DBI 0.93
-    or higher and perl 5.004 or higher.
+    It uses DBI 1.23 and perl5.6.1 or perl5.7.3, but might get it to work
+    with DBI 0.93 or higher and perl 5.005 or higher. But then again, in
+    that case you should consider an upgrade.
+
+    If you plan to use DataServer 8.1 database in Unicode encoding (UTF-8),
+    use perl5.8.0 or up (or at least 5.7.3), which has full Unicode 3.2
+    support.
 
 BUILDING, TESTING AND INSTALLING:
 
@@ -24,8 +29,14 @@ BUILDING, TESTING AND INSTALLING:
     with a warning if you are not.
 
 	   # perl Makefile.PL
+
+    This step will ask you if you need networked databases. Probably you do
+    not, which is the default answer. Choosing 'Yes' will include two more
+    libraries that are broken in 8.1CC for HP-UX. Choosing 'No' will prefer
+    U2000ul.a and S2000ul.a over U2000u.a and S2000u.a resulting in smaller
+    binaries with local-only support.
+
 	   # make test
-	   # make install
 
     Make test will use the current database and create a table "xx". If
     the test fails, table xx might still exist. If it already exists,
@@ -46,13 +57,23 @@ BUILDING, TESTING AND INSTALLING:
     The workaround seems to be to remove the reference to ACCELL.a from
     Makefile.PL (reported by Ron Kuris)
 
+	   # make install
+
+    Will install the DBD::Unify extension into the default perl path's. If
+    you plan to run different perl versions and/or different Unify versions
+    alongside eachother, use the installu.pl script instead, which installs
+    DBD::Unify in the Unify tree [ .../lib/perl ], and extend the environment
+    variable $PERL5LIB with $UNIFY/perl
+
+	  # make installu
+
     As with all modules: Patches are welcome.
 
 RESTRICTIONS:
 
     This is a basic port for Unify. At the moment of writing, this DBD
     does not support all DBI elements, methods and attributes. I'll add
-    these the moment I need them myself, or on of you will supply them
+    these the moment I need them myself, or one of you will supply them
     as patches.
 
     DATE and TIME fields are not fully supported. The database interaction
@@ -143,7 +164,7 @@ ACKNOWLEDGEMENTS
 
 COPYRIGHT AND LICENSE
 
-    Copyright (C) 2001 H.Merijn Brand
+    Copyright (C) 2002 H.Merijn Brand
 
     This library is free software; you can redistribute it and/or modify
     it under the same terms as Perl itself. 

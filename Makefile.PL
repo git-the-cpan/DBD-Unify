@@ -78,14 +78,20 @@ sub CheckUnify
 
     unlink "ulib";
     symlink $UNIFY, "./ulib";
-    $ULIBS = join " ulib/" => "",	# Checked for A/SQL DS 6.3 AB
-	qw(ACCELL.a
-	   S2000e.a S2000c.a
-	   U2000c.a U2000u.a U2000k.a
-	   U2000c.a
-	   S2000u.a S2000c.a U2000r.a
-	   libnwrpc.a libnwstcp.a
-	   U2000c.a U2000u.a);
+    # Checked for A/SQL DS 6.3 AB & 8.1CC
+    my @ulibs = qw(
+	ACCELL.a
+	S2000e.a S2000c.a
+	U2000c.a U2000u.a U2000k.a
+	U2000c.a
+	S2000u.a S2000c.a U2000r.a
+	libnwrpc.a libnwstcp.a
+	U2000c.a U2000u.a);
+    print "Do you *need* networked databases? [y/N] > N\b";
+    scalar <STDIN> =~ m/^\s*[yYjJ]/ or
+	@ulibs = map { s/0u\.a/0ul.a/; $_ } grep m/[ASU]/, @ulibs;
+    $ULIBS = join " ulib/" => "", @ulibs;
+    print "\n";
 
     # --- Check development environment
 
@@ -122,6 +128,9 @@ sub postamble
 	'',
 	'dbdimp.ec:		dbdimp.ic',
 	'	$(PERL) ic2ec dbdimp.ic > dbdimp.ec',
+	'',
+	'installu uinstall:	all',
+	'	$(PERL) installu.pl',
 	'';
     } # postamble
 

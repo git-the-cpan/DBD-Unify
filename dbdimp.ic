@@ -1,4 +1,4 @@
-/* Copyright (c) 1999-2001  H.Merijn Brand <h.m.brand@hccnet.nl>
+/* Copyright (c) 1999-2002  H.Merijn Brand <h.m.brand@hccnet.nl>
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Artistic License, as specified in the Perl README file.
@@ -93,8 +93,8 @@ va_dcl
     va_start (args);
 #endif
 
-    (void)vfprintf (DBILOGFP, fmt, args);
-    (void)fflush   (DBILOGFP);
+    (void)PerlIO_vprintf (DBILOGFP, fmt, args);
+    (void)PerlIO_flush   (DBILOGFP);
     va_end (args);
     } /* dbg */
 
@@ -195,9 +195,9 @@ int dbd_db_login (SV *dbh, imp_dbh_t *imp_dbh,
     DBIc_set (imp_dbh, DBIcf_AutoCommit, 0);
     DBIc_set (imp_dbh, DBIcf_ChopBlanks, 1);
 
-    imp_dbh->id        = n_dbh++;
-    imp_dbh->children  = (imp_sth_t **)0;
-    imp_dbh->nchildren = 0;
+    imp_dbh->id		= n_dbh++;
+    imp_dbh->children	= (imp_sth_t **)0;
+    imp_dbh->nchildren	= 0;
 
     unless (auth && *auth)
 	auth = getenv ("USCHEMA");
@@ -362,7 +362,7 @@ int dbd_db_disconnect (SV *dbh, imp_dbh_t *imp_dbh)
 	DISCONNECT;
     dbg (3, "    After disconn,  sqlcode = %d\n", SQLCODE);
 
-    imp_dbh->id = 0;
+    imp_dbh->id  = 0;
     /* We assume that disconnect will always work
      * since most errors imply already disconnected.
      */
@@ -1447,7 +1447,7 @@ dbg (2, " stat");
 	warn ("DBD::Unify::st_free: Handle stat not clear: 0x%02X\n", imp_sth->stat);
     else {
 	clr_sth_id (dbh, imp_sth->id);
-	imp_sth->id = 0;
+	imp_sth->id  = 0;
 	}
 
     if (imp_sth->statement) {

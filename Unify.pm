@@ -1,4 +1,4 @@
-#   Copyright (c) 1999-2001 H.Merijn Brand
+#   Copyright (c) 1999-2002 H.Merijn Brand
 #
 #   You may distribute under the terms of either the GNU General Public
 #   License or the Artistic License, as specified in the Perl README file.
@@ -82,7 +82,7 @@ use DBI 1.19;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.23";
+$VERSION = "0.24";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -475,7 +475,7 @@ H.Merijn Brand, <h.m.brand@hccnet.nl> developed the DBD::Unify extension.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2001 H.Merijn Brand
+Copyright (C) 2002 H.Merijn Brand
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

@@ -1,3 +1,14 @@
+*** Release 0.24
+
+    Mon 28 May 2002 <h.m.brand@hccnet.nl>
+
+	- Minor adjustments for perl-5.7.3 / DBI-1.21
+	- Disable networked databases by default
+	- Added installu.pl (make installu) to support multiple
+	  versions alongside
+	- README changes for 8.1 (UTF-8, network support, install)
+	- Tested against DBI-1.23
+
 *** Release 0.23
 
     Mon 27 Aug 2001 <h.m.brand@hccnet.nl>
