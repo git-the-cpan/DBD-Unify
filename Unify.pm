@@ -15,29 +15,56 @@ DBD::Unify - DBI driver for Unify database systems
 
 =head1 SYNOPSIS
 
+ # Examples marked NYT are Not Yet Tested, they might work
+ #  all others have been tested.
+ # man DBI for explanation of each method
+
  $dbh = DBI->connect ("DBI:Unify:[\$dbname]", "", $schema, {
 			 AutoCommit => 0,
 			 ChopBlanks => 1,
 			 ScanLevel  => 2,
 			 });
  $dbh->do ($statement);
- $dbh->commit ();
- $dbh->rollback ();
- $dbh->disconnect ();
+ $dbh->do ($statement, \%attr);                      # NYT
+ $dbh->do ($statement, \%attr, @bind);               # NYT
+ $dbh->commit;
+ $dbh->rollback;
+ $dbh->disconnect;
 
+ $all = $dbh->selectall_arrayref ($statement);
  @row = $dbh->selectrow_array ($statement);
+ $col = $dbh->selectcol_arrayref ($statement);
 
  $sth = $dbh->prepare ($statement);
- $sth->execute ();
- @row = $sth->fetchrow_array ();
- $sth->finish ();
+ $sth = $dbh->prepare_cached ($statement);           # NYT
+ $sth->execute;
+ @row = $sth->fetchrow_array;
+ $row = $sth->fetchrow_arrayref;
+ $row = $sth->fetchrow_hashref;
+ $all = $sth->fetchall_arrayref;
+ $sth->finish;
 
  # Statement has placeholders like where field = ?
  $sth = $dbh->prepare ($statement);
+ $sth->bind_param ($p_num, $bind_value);             # NYT
+ $sth->bind_param ($p_num, $bind_value, $bind_type); # NYT
+ $sth->bind_param ($p_num, $bind_value, \%attr);     # NYT
+ $sth->bind_col ($col_num, \$col_variable);          # NYT
+ $sth->bind_columns (@list_of_refs_to_vars_to_bind); # NYT
  $sth->execute (3);
- @row = $sth->fetchrow_array ();
- $sth->finish ();
- ...
+ @row = $sth->fetchrow_array;
+ $sth->finish;
+
+ $cnt = $sth->rows;                                  # NYT
+
+ $sql = $dbh->quote ($string);
+
+ $err = $dbh->err;
+ $err = $sth->err;
+ $str = $dbh->errstr;
+ $str = $sth->errstr;
+ $stt = $dbh->state;
+ $stt = $sth->state;
 
 =cut
 
@@ -51,7 +78,7 @@ use DBI 1.12;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.07";
+$VERSION = "0.08";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;

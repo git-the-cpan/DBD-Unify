@@ -2,8 +2,12 @@
 
 use DBI qw(:sql_types);
 
-$verbose =  0;# unless defined $verbose;
-$ntests  = 32;
+$verbose =   0;	# unless defined $verbose;
+$max_sth = 473;	# Arbitrary limit test count
+$ntests  =  33 + $max_sth;
+
+$ENV{MAXSCAN}       = $max_sth + 1;
+$ENV{MXOPENCURSORS} = 2 * $max_sth;
 
 my $t = 0;
 sub ok ($$)
@@ -202,6 +206,23 @@ while (my @f = $sth->fetchrow_array ()) {
 	"@f" eq shift @rec);
     }
 $sth->finish ();
+
+$dbh->do ("delete xx");
+$dbh->commit;
+
+# Now check hitting realloc sth_id with an arbitrary number
+my @sti = map { $dbh->prepare ("insert into xx (xs, xl) values ($_, ?)") }
+    (0 .. $max_sth);
+map { $_->execute (1234) } @sti;
+my @sts = map { $dbh->prepare ("select xs, xl from xx where xs = ?") }
+    (0 .. $max_sth);
+foreach my $i (0 .. $max_sth) {
+    $sts[$i]->execute ($i);
+    my ($xs, $xl) = $sts[$i]->fetchrow_array ();
+    ok ("max sth", $xs == $i && $xl == 1234);
+    }
+map { $_->finish () } @sts, @sti;
+$dbh->commit;
 
 # DROP THE TABLE
 $dbh->do ("drop table xx");

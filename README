@@ -78,3 +78,5 @@ TO DO:
 
     # Try finding a way to open several different Unify databases at the
       same time for parallel processing.
+
+    # Check realloc for sth_id assignment (increased to 128 default for now)

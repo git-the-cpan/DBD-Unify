@@ -195,7 +195,7 @@ char      *auth;
 	}
     EXEC SQL
 	CONNECT;
-    dbg (3, "    After connect, sqlcode = %d\n", SQLCODE);
+    dbg (3, "    After connect,    sqlcode = %d\n", SQLCODE);
 
     unless (sqlError (dbh))
 	return (0);
@@ -220,7 +220,7 @@ char      *auth;
 	    return (0);
 	}
 
-    unless (sth_id_on = (byte *)calloc (n_sth_id, 8)) {
+    unless (sth_id_on || (sth_id_on = (byte *)calloc (n_sth_id, 8))) {
 	error (dbh, errno, "Cannot allocate space for STH's", 0);
 	return (0);
 	}
@@ -345,7 +345,9 @@ imp_dbh_t *imp_dbh;
 	dbd_db_disconnect (dbh, imp_dbh);
     DBIc_IMPSET_off (imp_dbh);
 
+    /* No, share it among all DB handles
     (void)free (sth_id_on);
+    */
     } /* dbd_db_destroy */
 
 int dbd_db_STORE_attrib (dbh, imp_dbh, keysv, valuesv)
@@ -426,8 +428,10 @@ SV *dbh;
     i = n_sth_id + 4;
     if (sth_id_on = realloc (sth_id_on, i * 8)) {
 	b = n_sth_id * 8 + 1;
-	while (n_sth_id < i)
-	    sth_id_on[n_sth_id++] = (byte)0;
+	sth_id_on[n_sth_id++] = (byte)1;
+	sth_id_on[n_sth_id++] = (byte)0;
+	sth_id_on[n_sth_id++] = (byte)0;
+	sth_id_on[n_sth_id++] = (byte)0;
 	return (b);
 	}
     error (dbh, errno, "Cannot allocate extra space for STH's", 0);
@@ -471,7 +475,7 @@ short dbhid, id;
     return (1);
     } /* use_sth_id */
 
-int dbd_st_describe (dbh, imp_sth, num_fields)
+int dbd_fld_describe (dbh, imp_sth, num_fields)
 SV	  *dbh;
 imp_sth_t *imp_sth;
 int	  num_fields;
@@ -479,7 +483,7 @@ int	  num_fields;
     register	imp_fld_t	*f;
     register	int		i;
 
-    dbg (3, "DBD::Unify::st_describe %s (%d fields)\n", o_sql_nm, num_fields);
+    dbg (3, "DBD::Unify::fld_describe %s (%d fields)\n", o_sql_nm, num_fields);
 
     unless (num_fields > 0 &&
            (imp_sth->fld = (imp_fld_t *)calloc (num_fields, sizeof (imp_fld_t))))
@@ -513,7 +517,51 @@ int	  num_fields;
 	f->fnl = fnl;
 	}
     return (num_fields);
-    } /* dbd_st_describe */
+    } /* dbd_fld_describe */
+
+int dbd_prm_describe (dbh, imp_sth, num_params)
+SV	  *dbh;
+imp_sth_t *imp_sth;
+int	  num_params;
+{
+    register	imp_fld_t	*f;
+    register	int		i;
+
+    dbg (3, "DBD::Unify::prm_describe %s (%d params)\n", i_sql_nm, num_params);
+
+    unless (num_params > 0 &&
+           (imp_sth->prm = (imp_fld_t *)calloc (num_params, sizeof (imp_fld_t))))
+	return (0);
+
+    for (fix = 1; fix <= num_params; fix++) {
+	f = &imp_sth->prm[fix - 1];
+	EXEC SQL
+	    GET DESCRIPTOR :i_sql_nm
+	    VALUE :fix
+		  :ftp = TYPE,
+		  :fln = LENGTH,
+		  :fpr = PRECISION,
+		  :fic = INDICATOR,
+		  :fsc = SCALE,
+		  :fnl = NULLABLE/*, Core dump on OSF/1
+		  :fnm = NAME*/;
+	unless (sqlError (dbh))
+	    return (0);
+
+	i = 40;
+	while (i && (!fnm[i - 1] || fnm[i - 1] == ' '))
+	    i--;
+	fnm[i] = (char)0;
+	(void)strncpy (f->fnm, fnm, 40);
+	f->ftp = ftp;
+	f->fln = fln;
+	f->fpr = fpr;
+	f->fic = fic;
+	f->fsc = fsc;
+	f->fnl = fnl;
+	}
+    return (num_params);
+    } /* dbd_prm_describe */
 
 int dbd_st_prepare (sth, imp_sth, statement, attribs)
 SV        *sth;
@@ -540,6 +588,7 @@ SV        *attribs;   /* unused */
 	(void)strcpy (imp_sth->statement, statement);
     imp_sth->open = 0;
     imp_sth->fld  = (imp_fld_t *)0;
+    imp_sth->prm  = (imp_fld_t *)0;
 
     EXEC SQL
 	ALLOCATE   :c_sql_nm
@@ -579,7 +628,7 @@ SV        *attribs;   /* unused */
     unless (sqlError (dbh))
 	return (-1);
     DBIc_NUM_FIELDS (imp_sth) = n_sql_st;
-    dbd_st_describe (dbh, imp_sth, n_sql_st);
+    dbd_fld_describe (dbh, imp_sth, n_sql_st);
 
     /* Check for positional parameters */
     {   register char	*src = statement;
@@ -617,6 +666,8 @@ SV        *attribs;   /* unused */
 	dbg (3, "    After describe, sqlcode = %d\n", SQLCODE);
 	unless (sqlError (dbh))
 	    return (-1);
+
+	dbd_prm_describe (dbh, imp_sth, n_sql_st);
 	}
 
     dbg (2, "DBD::Unify::st_prepare %s (<= %d, => %d)\n", u_sql_nm,
@@ -637,9 +688,9 @@ SV        *attribs;
 int       is_inout;
 IV        maxlen;
 {
-    int   num_fields, i;
-    AV    *av;
-    SV    *dbh = DBIc_PARENT_H (imp_sth);
+    auto	int		i;
+    auto	AV		*av;
+    auto	SV		*dbh = DBIc_PARENT_H (imp_sth);
 
     D_imp_dbh_from_sth;
 
@@ -655,7 +706,7 @@ IV        maxlen;
         croak ("DBD::Unify::st_bind: parameter outside range 1..%d",
             DBIc_NUM_PARAMS (imp_sth));
 
-dbg (2, "\tActive: %d, open: %d\n", DBIc_ACTIVE (imp_sth), imp_sth->open);
+    dbg (2, "\tActive: %d, open: %d\n", DBIc_ACTIVE (imp_sth), imp_sth->open);
     if (DBIc_ACTIVE (imp_sth) && imp_sth->open) {	/* Re-execute	*/
 	EXEC SQL
 	    CLOSE :c_sql_nm;
@@ -665,30 +716,19 @@ dbg (2, "\tActive: %d, open: %d\n", DBIc_ACTIVE (imp_sth), imp_sth->open);
 	imp_sth->open = 0;
 	}
 
-    dbg (3, "     Field %3d: ", fix);
-#ifdef __osf__
-    (void)strcpy (fnm, "?");
-    EXEC SQL
-	GET DESCRIPTOR :i_sql_nm
-	VALUE :fix
-	      :ftp = TYPE,
-	      :fln = LENGTH,
-	      :fpr = PRECISION,
-	      :fsc = SCALE,
-	      :fnl = NULLABLE;	/* OSF/1 6.3AB crashes on name */
-#else
-    EXEC SQL
-	GET DESCRIPTOR :i_sql_nm
-	VALUE :fix
-	      :ftp = TYPE,
-	      :fln = LENGTH,
-	      :fpr = PRECISION,
-	      :fsc = SCALE,
-	      :fnl = NULLABLE,
-	      :fnm = NAME;
-#endif
-    unless (sqlError (dbh))
+    unless (imp_sth->prm || dbd_prm_describe (dbh, imp_sth, DBIc_NUM_PARAMS (imp_sth))) {
+	croak ("Describe failed during %s->BIND ()", SvPV (sth, na));
 	return (-1);
+	}
+
+    dbg (3, "     Field %3d: ", fix);
+    (void)strcpy (fnm, imp_sth->prm[fix - 1].fnm);
+    fln = imp_sth->prm[fix - 1].fln;
+    ftp = imp_sth->prm[fix - 1].ftp;
+    fln = imp_sth->prm[fix - 1].fln;
+    fpr = imp_sth->prm[fix - 1].fpr;
+    fsc = imp_sth->prm[fix - 1].fsc;
+    fnl = imp_sth->prm[fix - 1].fnl;
 
     dbg (4, "[%02X %02X %02X %02X %02X] ",
 	(unsigned char)ftp, fln, fpr, fsc, fic);
@@ -936,7 +976,7 @@ imp_sth_t *imp_sth;
 	    SvREADONLY_on (av);
 	}
 
-    unless (imp_sth->fld || dbd_st_describe (imp_sth, num_fields)) {
+    unless (imp_sth->fld || dbd_fld_describe (dbh, imp_sth, num_fields)) {
 	croak ("Describe failed during %s->FETCH ()", SvPV (sth, na));
 	return (Nullav);
 	}
@@ -1171,10 +1211,6 @@ imp_sth_t *imp_sth;
 	DBIc_ACTIVE_off (imp_sth);
 	}
 
-    if (imp_sth->statement) {
-	(void)free (imp_sth->statement);
-	imp_sth->statement = (char *)0;
-	}
     return (clr_sth_id (dbh, imp_sth->id));
     } /* dbd_st_finish */
 
@@ -1192,6 +1228,20 @@ imp_sth_t *imp_sth;
 	warn ("DBD::Unify::st_destroy: Handle still active, will finish first\n");
 	dbd_st_finish (sth, imp_sth);
 	}
+
+    if (imp_sth->statement) {
+	(void)free (imp_sth->statement);
+	imp_sth->statement = (char *)0;
+	}
+    if (imp_sth->fld) {
+	(void)free (imp_sth->fld);
+	imp_sth->fld = (imp_fld_t *)0;
+	}
+    if (imp_sth->prm) {
+	(void)free (imp_sth->prm);
+	imp_sth->prm = (imp_fld_t *)0;
+	}
+
     if (DBIc_has (imp_sth, DBIcf_IMPSET))
 	DBIc_IMPSET_off (imp_sth);
     } /* dbd_st_destroy */

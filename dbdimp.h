@@ -43,11 +43,12 @@ struct imp_sth_st {
     short	open;		/* Cursor open/closed			*/
     char	*statement;	/* Statement text			*/
 
-    imp_fld_t	*fld;		/* Add knowledge about the positionals	*/
+    imp_fld_t	*fld;		/* Add knowledge about the fields	*/
+    imp_fld_t	*prm;		/* Add knowledge about the positionals	*/
     };
 
 struct imp_fld_st {
-    char	fnm[44];	/* Name		*/
+    char	fnm[48];	/* Name		*/
     int		ftp;		/* Type		*/
     int		fln;		/* Length	*/
     int		fpr;		/* Precision	*/
