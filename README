@@ -1,30 +1,27 @@
-DBD::Unify --  an Unify interface for Perl 5 using DBI.
+DBD::Unify --  a Unify interface for Perl 5 using DBI.
 
 This is the Database Driver for the Unify family of database products.
 
-It has been ported and tested on DataServer 6.3AB, but this does not
-mean it might not work on U2000 databases.
-
-It uses DBI 1.14 and perl5.00503, but will probably work with DBI 0.93
-or higher and perl 5.004 or higher.
-
-   Copyright (c) 1999,2000  H.Merijn Brand <h.m.brand@hccnet.nl>
+   Copyright (c) 1999,2001  H.Merijn Brand <h.m.brand@hccnet.nl>
 
    You may distribute under the terms of either the GNU General Public
    License or the Artistic License, as specified in the Perl README file.
 
 See the ChangeLog file for a complete history
 
-This is a very basic port for Unify. At the moment of writing, this DBD
-does not support all DBI elements, methods and attributes. (See RESTRICTIONS)
+REQUIREMENTS
 
-DATE, TIME, TEXT and BINARY fields are not (yet) supported, though it is
-easy to change (code is supplied, but returns undef). Since we do not use
-these types with our databases, it's up to you to supply patches.
+    It has been ported and tested on DataServer 6.3AB and 6.3BE, but this
+    does not mean it might not work on U2000 databases.
+
+    It uses DBI 1.19 and perl5.6.1, but will probably work with DBI 0.93
+    or higher and perl 5.004 or higher.
 
 BUILDING, TESTING AND INSTALLING:
 
     This will only work if DBI is installed on a recent version of perl ;-)
+    and you are working in a valid Unify environment. Makefile.PL will stop
+    with a warning if you are not.
 
 	   # perl Makefile.PL
 	   # make test
@@ -34,47 +31,79 @@ BUILDING, TESTING AND INSTALLING:
     the test fails, table xx might still exist. If it already exists,
     it might get lost, so be aware!
 
-    I've encountered some problems using <varargs.h> on builds where perl
-    decided to use <stdarg.h>, so I try to switch to varargs by force. If
-    problems persist, maybe rewriting dbg () to:
+    Make test will try to test all DBI features found in the DBI-1.19 docs
+    even some that are not DBD dependent. Partly to show that it still works
+    for DBD::Unify, and partly to find what features are still to be
+    implemented. Features known to fail will issue an ok when ran with
+    make test, but will show additional comments with a todo tag when run
+    directly (e.g. 'perl t/11-dbi-dbh.t'). Note that the t/21-uni-regex test
+    skips the test for 'SHLIKE' because this will cause core dumps. Advice:
+    do *not* use SHLIKE, but use REGLIKE (which is quite easy to convert to
+    from SHLIKE)
 
-	   static void dbg (level, fmt, ap)
-	   int  level;
-	   char *fmt;
-	   char *ap;
-	   {
-	       auto	va_list	args;
+    If you happen to have a DataServer only product (no accell), make
+    will probably complain about a missing ACCELL.a from Makefile.PL
+    The workaround seems to be to remove the reference to ACCELL.a from
+    Makefile.PL (reported by Ron Kuris)
 
-	       if (level > dbis->debug && level > opt_v)
-		   return;
-
-	       va_start (args, ap);
-	       (void)vfprintf (DBILOGFP, fmt, args);
-	       (void)fflush   (DBILOGFP);
-	       va_end (args);
-	       } /* dbg */
-
-    might help for those deficit systems.
-    
     As with all modules: Patches are welcome.
 
 RESTRICTIONS:
 
+    This is a basic port for Unify. At the moment of writing, this DBD
+    does not support all DBI elements, methods and attributes. I'll add
+    these the moment I need them myself, or on of you will supply them
+    as patches.
+
+    DATE and TIME fields are not fully supported. The database interaction
+    works, but there are some issues left to iron out in the user
+    interface. We're woking on it. Suggestions welcome.
+
+    TEXT and BINARY fields are not (yet) supported, though it is easy to
+    change (code is supplied, but returns undef). Since we (me and my
+    co-workers) do not use these types with our databases, it's up to you
+    again to supply patches. Be sure to read what the DBI thinks about
+    BLOB's before diving into this snake-pit.
+
+    Other known restrictions:
+
     # Incomplete or out-of-date documentation, though I keep trying to
       keep in pace with what I change
 
-    # Missing support for datatypes DATE, TIME, TEXT and BINARY in fetch
-      and positional parameters
+    # Missing support for datatypes TEXT and BINARY in fetch and
+      positional parameters (it's up to you to supply patches)
 
     # Some database attributes not (yet) implemented. (AutoCommit et all)
 
     # Statement attributes not (yet) fully implemented. Those needed for
       $sth->fetchrow_hashref () now work, but STORE_attrib () doesn't.
       Someone (probably me) will have to work through the list of
-      documented database- and statement handle attributes
+      documented database- and statement handle attributes.
+
+      DBD::Unify tries to return the {TYPE} attribute in ANSI/ODBC DBI
+      compliant coding, and has the original Unify field type available
+      in the {uni_types} attribute. Fot AMOUNT and HUGE AMOUNT however,
+      ANSI has no defined codes. These will be returned as SQL_FLOAT and
+      SQL_DOUBLE, with the {SCALE} set to 2.
+
+    And deficiencies/shortcommings that come with Unify:
+
+    # Unify does not supply the "NULLABLE" indicator when describing
+      fields
+
+    # Unify does not return the desired length of non-character type
+      fields, but the /maximum/ PRECISION for those fields
 
     # Unify only distributes static libraries, so the module might
       become rather big
+
+    # At least until 6.3, Unify library pool does *NOT* allow more then
+      one different database open at the same time from within the same
+      process (even when the first database has correctly disconnected
+      and closed) :-((
+
+      This problem is known  with Unify and registered in their bug
+      database as 'usb100963: disconnect'
 
 TO DO:
 
@@ -94,7 +123,29 @@ TO DO:
 
     # Investigate if LIKE and SHLIKE operators in positional parameters
       indeed do not work (I've seen that, but found no time yet to look
-      into this more). Currently it cores on SHLIKE.
+      into this more). Currently it cores on SHLIKE. See t/21-uni-regex.t
 
     # Try finding a way to open several different Unify databases at the
-      same time for parallel processing.
+      same time for parallel (or at least sequential) processing.
+
+    # Try finding ways to increase performance, squeezing every last
+      nanosecond out of each handle ;-P
+
+    # If you're into Unify internals, try finding out why describing
+      positional parameters in where clauses (not in selected fields)
+      causes a core dump on the field name. Look in dbdimp.ic in function
+      dbd_prm_describe () for comment about OSF/1.
+
+ACKNOWLEDGEMENTS
+
+    Thanks to Tom Poage <poage@fireball.ucdmc.ucdavis.edu> for keeping
+    the speed in the development and help in adding the missing features.
+
+COPYRIGHT AND LICENSE
+
+    Copyright (C) 2001 H.Merijn Brand
+
+    This library is free software; you can redistribute it and/or modify
+    it under the same terms as Perl itself. 
+
+As always, have the appropriate amount of fun!

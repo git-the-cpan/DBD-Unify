@@ -1,9 +1,9 @@
-#   Copyright (c) 1999,2000 H.Merijn Brand
+#   Copyright (c) 1999-2001 H.Merijn Brand
 #
 #   You may distribute under the terms of either the GNU General Public
 #   License or the Artistic License, as specified in the Perl README file.
 
-require 5.004;
+require 5.005;
 
 use strict;
 
@@ -17,17 +17,18 @@ DBD::Unify - DBI driver for Unify database systems
 
  # Examples marked NYT are Not Yet Tested, they might work
  #  all others have been tested.
- # man DBI for explanation of each method
+ # man DBI for explanation of each method (there's more than listed here)
 
  $dbh = DBI->connect ("DBI:Unify:[\$dbname]", "", $schema, {
 			 AutoCommit => 0,
 			 ChopBlanks => 1,
 			 ScanLevel  => 2,
+			 DBDverbose => 0,
 			 });
  $dbh = DBI->connect_cached (...);                   # NYT
  $dbh->do ($statement);
- $dbh->do ($statement, \%attr);                      # NYT
- $dbh->do ($statement, \%attr, @bind);               # NYT
+ $dbh->do ($statement, \%attr);                      # NYI
+ $dbh->do ($statement, \%attr, @bind);               # NYI
  $dbh->commit;
  $dbh->rollback;
  $dbh->disconnect;
@@ -52,9 +53,7 @@ DBD::Unify - DBI driver for Unify database systems
  $sth->bind_param ($p_num, $bind_value, \%attr);     # NYT
  $sth->bind_col ($col_num, \$col_variable);          # NYT
  $sth->bind_columns (@list_of_refs_to_vars_to_bind);
- $sth->execute (3);
- @row = $sth->fetchrow_array;
- $sth->finish;
+ $sth->execute (@bind_values);
 
  $cnt = $sth->rows;
 
@@ -79,11 +78,11 @@ DBD::Unify - DBI driver for Unify database systems
 
 package DBD::Unify;
 
-use DBI 1.12;
+use DBI 1.19;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.20";
+$VERSION = "0.23";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -197,21 +196,70 @@ sub prepare
     $sth;
     } # prepare
 
-sub table_info
+sub table_info ($;$$$$)
 {
-    my ($dbh) = @_;
+    my $dbh = shift;
+    my ($catalog, $schema, $table, $type, $attr);
+    ref $_[0] or ($catalog, $schema, $table, $type) = splice @_, 0, 4;
+    if ($attr = shift and ref $attr) {
+	exists $attr->{TABLE_SCHEM} and $schema = $attr->{TABLE_SCHEM};
+	exists $attr->{TABLE_NAME}  and $table  = $attr->{TABLE_NAME};
+	exists $attr->{TABLE_TYPE}  and $type   = $attr->{TABLE_TYPE};
+	}
+    my @where;
+    $schema and push @where, "OWNR       = '$schema'";
+    $table  and push @where, "TABLE_NAME = '$table'";
+    $type   and $type = uc substr $type, 0, 1;
+    $type   and push @where, "TABLE_TYPE = '$type'";
+    local $" = " and ";
+    my $where = @where ? " where @where" : "";
     my $sth = $dbh->prepare (
 	"select '', OWNR, TABLE_NAME, TABLE_TYPE, RDWRITE ".
-	"from   SYS.ACCESSIBLE_TABLES");
+	"from   SYS.ACCESSIBLE_TABLES".
+	$where);
     $sth or return;
     $sth->execute;
     $sth;
     } # table_info
 
+# type = "R" ? references me : references
+sub link_info ($;$$$$)
+{
+    my $dbh = shift;
+    my ($catalog, $schema, $table, $type, $attr);
+    ref $_[0] or ($catalog, $schema, $table, $type) = splice @_, 0, 4;
+    if ($attr = shift and ref $attr) {
+	exists $attr->{TABLE_SCHEM} and $schema = $attr->{TABLE_SCHEM};
+	exists $attr->{TABLE_NAME}  and $table  = $attr->{TABLE_NAME};
+	exists $attr->{TABLE_TYPE}  and $type   = $attr->{TABLE_TYPE};
+	}
+    my @where;
+    unless ($type and $type =~ m/^[Rr]/) {
+	$schema and push @where, "REFERENCING_OWNER = '$schema'";
+	$table  and push @where, "REFERENCING_TABLE = '$table'";
+	}
+    else {
+	$schema and push @where, "REFERENCED_OWNER  = '$schema'";
+	$table  and push @where, "REFERENCED_TABLE  = '$table'";
+	}
+    local $" = " and ";
+    my $where = @where ? " where @where" : "";
+    my $sth = $dbh->prepare (join "\n",
+	"select '', REFERENCED_OWNER, INDEX_NAME, REFERENCED_TABLE,",
+	"       REFERENCED_COLUMN, REFERENCED_COLUMN_ORD,",
+	"       REFERENCING_OWNER, REFERENCING_TABLE, REFERENCING_COLUMN,",
+	"       REFERENCING_COLUMN_ORD ",
+	"from   SYS.LINK_INDEXES",
+	$where);
+    $sth or return;
+    $sth->execute;
+    $sth;
+    } # link_info
+
 sub ping
 {
     my $dbh = shift;
-    $dbh->prepare ("select * from SYS.UNIQ") or return 0;
+    $dbh->prepare ("select * from SYS.ACCESSIBLE_TABLES") or return 0;
     return 1;
     } # ping
 
@@ -293,7 +341,10 @@ force convert to numeric context is not needed.
 
 Chars are returned as strings (perl's PVs).
 
-Dates, varchars and others are returned as undef (for the moment).
+Chars, Dates, Huge Dates and Times are returned as strings (perl's PVs).
+Unify represents midnight with 00:00, not 24:00.
+
+Varchars and others are returned as undef (for the moment).
 
 =item *
 
@@ -356,11 +407,24 @@ To be safe in closing a handle of all sorts, undef it after it is done with,
 it will than be destroyed. (As of 0.12 this is tried internally for handles
 that proved to be finished)
 
+explicit:
+
  my $dbh = DBI->connect (...);
  my $sth = $dbh->prepare (...);
  :
  $sth->finish;     undef $sth;
  $dbh->disconnect; undef $dbh;
+
+or implicit:
+
+ {   my $dbh = DBI->connect (...);
+     {   my $sth = $dbh->prepare ("...");
+         while (my @data = $sth->fetchrow_array) {
+             :
+             }
+         }  # $sth implicitly destroyed by end-of-scope
+     $dbh->disconnect;
+     }  # $dbh implicitly destroyed by end-of-scope
 
 =item *
 
@@ -408,5 +472,12 @@ DBI/DBD was developed by Tim Bunce, <Tim.Bunce@ig.co.uk>, who also
 developed the DBD::Oracle.
 
 H.Merijn Brand, <h.m.brand@hccnet.nl> developed the DBD::Unify extension.
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2001 H.Merijn Brand
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. 
 
 =cut

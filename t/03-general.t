@@ -18,7 +18,7 @@ sub ok ($$;$) {
 use DBI;
 $| = 1;
 
-my $schema = "SYS";
+my $schema = "DBUTIL";
 my $dbh    = DBI->connect ("dbi:Unify:", "", $schema);
 
 unless ($dbh) {
@@ -31,7 +31,7 @@ print "1..$tests\n";
 
 # also test preparse doesn't get confused by ? :1
 my $sth = $dbh->prepare (q{
-    select * from UNIQ -- ? :1
+    select * from DIRS -- ? :1
     });
 ok (0, $sth->execute);
 ok (0, $sth->{NUM_OF_FIELDS});
@@ -42,7 +42,7 @@ ok (0, $sth->finish);
 ok (0, !$sth->{Active});
 undef $sth;		# Force destroy
 
-$sth = $dbh->prepare ("select * from UNIQ");
+$sth = $dbh->prepare ("select * from DIRS");
 ok (0, $sth->execute);
 ok (0, $sth->{Active});
 1 while ($sth->fetch);	# fetch through to end
@@ -50,7 +50,8 @@ ok (0, !$sth->{Active});
 undef $sth;
 
 eval {
-    $dbh->{RaiseError} = 1;
+    local $dbh->{PrintError} = 0;
+    local $dbh->{RaiseError} = 1;
     $dbh->do ("some invalid sql statement");
     };
 ok (0, $@ =~ /DBD::Unify::db do failed:/, "eval error: ``$@'' expected 'do failed:'");

@@ -9,14 +9,29 @@
 
 /* ====== Include Unify Header Files ====== */
 
-#include <dbtypes.h>
 #include <fdesc.h>
+#include <rhli.h>
 #include <rhlierr.h>
 
 typedef	unsigned char	byte;
 
-/* ------ end of Unify include files ------ */
+/* Unify API calls used */
 
+char *atold (char *buf, UINT32 *ldate);	/* returns null on error or pointer
+					 * to location just past last character */
+
+int   ldtoa (UINT32 ldate, char *buf);	/* returns zero on success */
+
+char *atotime (char *buf, short *time);	/* returns null on error or pointer
+					 * to location just past last character */
+
+char *timetoa (short time);		/* returns pointer to static buf;
+					 * silently converts bad times to
+					 * strings, e.g., 2910 -> 29:10 */
+
+char *ufchmsg (USTATUS errnum, USTATUS *status);
+
+USTATUS	SQLCODE;
 
 /* ====== define data types ====== */
 

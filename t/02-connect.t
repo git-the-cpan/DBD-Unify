@@ -18,7 +18,7 @@ sub ok ($$;$) {
 use DBI;
 $| = 1;
 
-my $schema = "SYS";
+my $schema = "DBUTIL";
 my $dbh    = DBI->connect ("dbi:Unify:", "", $schema);
 
 unless ($dbh) {
@@ -29,7 +29,7 @@ unless ($dbh) {
 
 print "1..$tests\n";
 
-my $sth = $dbh->prepare ("select * from UNIQ");
+my $sth = $dbh->prepare ("select * from DIRS");
 ok (0, $sth->execute);
 ok (0, $sth->{Active});
 $sth->finish;

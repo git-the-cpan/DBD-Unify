@@ -1,3 +1,42 @@
+*** Release 0.23
+
+    Mon 27 Aug 2001 <h.m.brand@hccnet.nl>
+
+	- README tweaks and additions
+	- Unify => SQL types (->{TYPE} attribute is now ANSI/ODBC)
+	  see README section RESTRICTIONS
+	- Tested against DBI-1.20
+
+*** Release 0.22
+
+    Tue 24 Jul 2001 <h.m.brand@hccnet.nl>
+
+	- Basic support for DATE/TIME (Tom Poage)
+	- Extended test suite for testing DATE/TIME
+	- Alter test behaviour due to authorization failures
+	- Safer internals for field name and string values
+	- Optional attributes to table_info (from dbi_dev)
+	- Acknowledgements in README (Thanks Tom ;-)
+	- Many more changes in README (varargs is now solved; requirements;
+	  todo; restrictions)
+	- Added COPYRIGHT & LICENSE to Unify.pm and README
+	- Suppressed PrintError in t/03-general for DBI-1.18 and up
+	- Minor doc additions in Unify.pm
+	- Major additions and changes to test suite. Notably t/21-uni-regex.t
+	  to see if the SHLIKE bug exists in the current configuration
+	- Minor adjustments for DBI-1.19 and table_info change
+	- Added link_info (experimental)
+
+*** Release 0.21
+
+    Wed 28 Mar 2001 <h.m.brand@hccnet.nl>
+
+	- Some changes to README
+	- Reorganization of test suite; Signaling of not (yet) implemented
+	  functionality; Testing all DBI's documented features
+	- prototypes (Tom Poage)
+	- varargs/stdarg from perl config
+
 *** Release 0.20
 
     Mon 26 Feb 2001 <h.m.brand@hccnet.nl>
@@ -127,4 +166,4 @@
 
     Tue 18 Jan 2000 <h.m.brand@hccnet.nl>
 
-	- First port
+	- First public port
