@@ -11,6 +11,7 @@
 
 #include <dbtypes.h>
 #include <fdesc.h>
+#include <rhlierr.h>
 
 typedef	unsigned char	byte;
 
@@ -19,7 +20,9 @@ typedef	unsigned char	byte;
 
 /* ====== define data types ====== */
 
-typedef struct imp_fbh_st imp_fbh_t;
+typedef struct imp_fld_st imp_fld_t;
+
+static	short	n_dbh = 0;
 
 struct imp_drh_st {
     dbih_drc_t	com;		/* MUST be first element in structure	*/
@@ -28,6 +31,8 @@ struct imp_drh_st {
 /* Define dbh implementor data structure */
 struct imp_dbh_st {
     dbih_dbc_t	com;		/* MUST be first element in structure	*/
+
+    short	id;		/* DB Handle ID for dynamic naming	*/
     };
 
 /* Define sth implementor data structure */
@@ -35,8 +40,20 @@ struct imp_sth_st {
     dbih_stc_t	com;		/* MUST be first element in structure	*/
 
     short	id;		/* Statement ID, for dynamic naming	*/
-
+    short	open;		/* Cursor open/closed			*/
     char	*statement;	/* Statement text			*/
+
+    imp_fld_t	*fld;		/* Add knowledge about the positionals	*/
+    };
+
+struct imp_fld_st {
+    char	fnm[44];	/* Name		*/
+    int		ftp;		/* Type		*/
+    int		fln;		/* Length	*/
+    int		fpr;		/* Precision	*/
+    int		fic;		/* Indicator	*/
+    int		fsc;		/* Scale	*/
+    int		fnl;		/* NULL		*/
     };
 
 /* These defines avoid name clashes for multiple statically linked DBD's	*/

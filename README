@@ -13,7 +13,7 @@ or higher and perl 5.004 or higher.
    You may distribute under the terms of either the GNU General Public
    License or the Artistic License, as specified in the Perl README file.
 
-See the CHANGES file for a complete history
+See the ChangeLog file for a complete history
 
 This is a very basic port for Unify. At the moment of writing, this DBD
 does not support all DBI elements, methods and attributes. (See RESTRICTIONS)
@@ -42,14 +42,16 @@ BUILDING, TESTING AND INSTALLING:
 
 RESTRICTIONS:
 
-    # Incomplete or out-of-date documentation
+    # Incomplete or out-of-date documentation, though I keep trying to
+      keep in pace with what I change
 
     # Missing support for datatypes DATE, TIME, TEXT and BINARY in fetch
       and positional parameters
 
     # Most database attributes not (yet) implemented. (AutoCommit et all)
 
-    # Statement attributes not (yet) implemented.
+    # Statement attributes not (yet) fully implemented. Those needed for
+      $sth->fetchrow_hashref () now work, but STORE_attrib () doesn't.
 
     # Row counts not (yet) implemented.
 
@@ -60,6 +62,19 @@ TO DO:
 
     # Remove as many restrictions as possible ;-)
 
+    # Add more tests
+
+    # Investigate and implement 3-arg versions of $sth->bind_param ()
+
+    # Investigate and implement 2- and 3-arg version of $dbh->do ()
+
     # Investigate if SvIOK (value) and SvNOK (value) have counterparts
       that REALLY check for IOK or NOK, even if string value has not been
       used as numeric value before in st_bind ()
+
+    # Investigate if LIKE and SHLIKE operators in positional parameters
+      indeed do not work (I've seen that, but found no time yet to look
+      into this more). Currently it cores on SHLIKE.
+
+    # Try finding a way to open several different Unify databases at the
+      same time for parallel processing.

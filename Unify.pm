@@ -15,28 +15,29 @@ DBD::Unify - DBI driver for Unify database systems
 
 =head1 SYNOPSIS
 
-    $dbh = DBI->connect ("DBI:Unify:[\$dbname]", "", $schema, {
-			    AutoCommit => 0,
-			    ChopBlanks => 1,
-			    ScanLevel  => 2,
-			    });
-    $dbh->do ($statement);
-    $dbh->commit ();
-    $dbh->rollback ();
-    $dbh->disconnect ();
+ $dbh = DBI->connect ("DBI:Unify:[\$dbname]", "", $schema, {
+			 AutoCommit => 0,
+			 ChopBlanks => 1,
+			 ScanLevel  => 2,
+			 });
+ $dbh->do ($statement);
+ $dbh->commit ();
+ $dbh->rollback ();
+ $dbh->disconnect ();
 
-    @row = $dbh->selectrow_array ($statement);
+ @row = $dbh->selectrow_array ($statement);
 
-    $sth = $dbh->prepare ($statement);
-    $sth->execute ();
-    @row = $sth->fetchrow_array ();
-    $sth->finish ();
+ $sth = $dbh->prepare ($statement);
+ $sth->execute ();
+ @row = $sth->fetchrow_array ();
+ $sth->finish ();
 
-    $sth = $dbh->prepare ($statement);	# W/ placeholders like where field = ?
-    $sth->execute (3);
-    @row = $sth->fetchrow_array ();
-    $sth->finish ();
-    ...
+ # Statement has placeholders like where field = ?
+ $sth = $dbh->prepare ($statement);
+ $sth->execute (3);
+ @row = $sth->fetchrow_array ();
+ $sth->finish ();
+ ...
 
 =cut
 
@@ -50,7 +51,7 @@ use DBI 1.12;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.05";
+$VERSION = "0.07";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -230,40 +231,33 @@ DBD::Unify.
 
 =head2 Extensions/Changes
 
-=over 4
+=over 2
 
-=item returned types
+=item *
+
+returned types
 
 The DBI docs state that:
 
-=over 2
-
-Most data is returned to the perl script as strings (null values are
-returned as undef).  This allows arbitrary precision numeric data to be
-handled without loss of accuracy.  Be aware that perl may not preserve
-the same accuracy when the string is used as a number.
-
-=back
-
-This is B<not> the case for Unify.
-
-Data is returned as it would be to an embedded C program:
-
-=over 2
+   Most data is returned to the perl script as strings (null values
+   are returned as undef).  This allows arbitrary precision numeric
+   data to be handled without loss of accuracy.  Be aware that perl
+   may  not preserve the same accuracy when the string is used as a
+   number.
 
 Integers are returned as integer values (perl's IVs).
 
-(Huge) amounts, floats and doubles are returned as numeric
-values (perl's NVs).
+(Huge) amounts, floats, reals and doubles are returned as strings for which
+numeric context (perl's NVs) has been invoked already, so adding zero to
+force convert to numeric context is not needed.
 
 Chars are returned as strings (perl's PVs).
 
-Dates, varchars and others are returned as undef (for
-the moment).
+Dates, varchars and others are returned as undef (for the moment).
 
-=back
+=item *
 
-=item connect
+connect
 
     connect ("DBI:Unify:dbname[;options]" [, user [, auth [, attr]]]);
 
@@ -273,7 +267,7 @@ name possibly followed by a semicolon and the database options
 which are ignored.
 
 Since Unify database authorisation is done using grant's using the
-user name, the <user> argument me be empty or undef. The auth
+user name, the I<user> argument me be empty or undef. The auth
 field will be used as a default schema. If the auth field is empty
 or undefined connect will check for the environment variable $USCHEMA
 to use as a default schema. If neither exists, you will end up in your
@@ -294,31 +288,51 @@ The connect call will result in statements like:
     SET CURRENT SCHEMA TO PUBLIC;  -- if auth = "PUBLIC"
     SET TRANSACTION SCAN LEVEL 7;  -- if attr has { ScanLevel => 7 }
 
-=over 4
+local database
 
-=item local database
+    connect ("/data/db/unify/v63AB", "", "SYS")
 
-       connect ("/data/db/unify/v63AB", "", "SYS")
+=item *
 
-=back
-
-and so on.
+AutoCommit
 
 It is recommended that the C<connect> call ends with the attributes
-C<{ AutoCommit => 0 }>, although it is not implemented (yet).
+S<{ AutoCommit => 0 }>, although it is not implemented (yet).
 
 If you dont want to check for errors after B<every> call use 
-C<{ AutoCommit => 0, RaiseError => 1 }> instead. This will C<die> with
+S<{ AutoCommit => 0, RaiseError => 1 }> instead. This will C<die> with
 an error message if any DBI call fails.
 
-=item do
+=item *
 
-    $dbh->do ($statement)
+re-connect
+
+Though both the syntax and the module support connecting to different
+databases, even at the same time, the Unify libraries seem to quit
+connecting to a new database, even if the old one is closed following
+every rule of precaution.
+
+To be safe in closing a handle of all sorts, undef it after it is done with,
+it will than be destroyed.
+
+ my $dbh = DBI-connect (...);
+ my $sth = $dbh->prepare (...);
+ :
+ $sth->finish ();     $sth = undef;
+ $dbh->disconnect (); $dbh = undef;
+
+=item *
+
+do
+
+ $dbh->do ($statement)
 
 This is implemented as a call to 'EXECUTE IMMEDIATE' with all the
 limitations that this implies.
 
-=item commit and rollback invalidates open cursors
+=item *
+
+commit and rollback invalidates open cursors
 
 DBD::Unify does warn when a commit or rollback is isssued on a $dbh
 with open cursors.
@@ -341,7 +355,11 @@ Far from complete ...
 
 =head1 SEE ALSO
 
-The DBI documentation in L<DBI>, other DBD documentation.
+The DBI documentation in L<DBI>, a lot of web pages, some very good, the
+Perl 5 DBI FAQ (http://www.symbolstone.org/technology/perl/DBI), other
+DBD modules' documentation (DBD-Oracle is probably the most complete), the
+comp.lang.perl.modules newsgroup and the dbi-users mailing list
+(http://www.isc.org/dbi-lists.html).
 
 =head1 AUTHORS
 

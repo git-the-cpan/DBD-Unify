@@ -2,22 +2,17 @@
 
 use DBI qw(:sql_types);
 
-$verbose = 1;# unless defined $verbose;
+$verbose =  0;# unless defined $verbose;
+$ntests  = 32;
 
 my $t = 0;
-sub ok ($$$;$)
+sub ok ($$)
 {
-    my ($n, $ok, $expl, $warn) = @_;
+    my ($tst, $ok) = @_;
     $t++;
-    $n && $n != $t and
-	die "Test sequence error, expected $n but actually $t";
     $verbose and
-	print "Testing $expl\n";
+	printf STDERR "%2d: %-20s %s\n", $t, $tst, $ok ? "OK" : "NOT OK";
     ($ok) ? print "ok $t\n" : print "not ok $t\n";
-    if (!$ok && $warn) {
-	$warn eq "1" and $warn = $DBI::errstr;
-	warn "$expl $warn\n";
-	}
     } # ok
 
 unless (exists $ENV{UNIFY}  && -d $ENV{UNIFY}) {
@@ -48,14 +43,14 @@ sub connect_db ($)
 	AutoCommit => 0,
 	ScanLevel  => 7,
 	ChopBlanks => 1,
-#	DBDverbose => 8,
+	DBDverbose => $verbose,
 	});
     unless ($dbh) {
         print "1..0\n";
         warn "Cannot connect to database $dbname: $DBI::errstr\n";
         exit 0;
 	}
-    print "1..1\nok 1\n";
+    print "1..$ntests\nok 1\n";
     $dbh;
     } # connect_db
 
@@ -65,33 +60,59 @@ $t = 1;
 # CREATE THE TABLE
 $dbh->do (join " " =>
     "create table xx (",
-    "    xs numeric  (4),",
-    "    xl numeric  (9),",
-    "    xc char     (5),",
-    "    xf float       ,",
-    "    xa amount (5,2)",
+    "    xs numeric       (4),",
+    "    xl numeric       (9),",
+    "    xc char          (5),",
+    "    xf float            ,",
+    "    xr real             ,",
+    "    xa amount      (5,2),",
+    "    xh huge amount (9,2)",
     ")");
 $dbh->commit;
 
 # FILL THE TABLE
-$dbh->do ("insert into xx values (0,1000,'   ',0.1,0.2)");
+$dbh->do ("insert into xx values (0,1000,'   ',0.1,0.2,0.3,1000.4)");
 foreach my $v ( 1 .. 9 ) {
-    $dbh->do ("insert into xx values ($v,100$v,'$v',$v.1,$v.2)");
+    $dbh->do ("insert into xx values ($v,100$v,'$v',$v.1,$v.2,$v.3,100$v.4)");
     }
 # FILL THE TABLE, POSITIONAL
-my $sth = $dbh->prepare ("insert into xx values (?,?,?,?,?)");
+my $sth = $dbh->prepare ("insert into xx values (?,?,?,?,?,?,?)");
 foreach my $v ( 10 .. 18 ) {
-    $sth->execute ($v, 1000 + $v, "$v", $v + .1, $v + .2);
+    $sth->execute ($v, 1000 + $v, "$v", $v + .1, $v + .2, $v + .3, 1000.4 + $v);
     }
 $sth->finish ();
 $dbh->commit;
 
+$" = ", ";
 # SELECT FROM THE TABLE
-$sth = $dbh->prepare ("select * from xx where xs between 4 and 8 or xs = 0");
+my %result_ok = (
+    0 => "0, 1000, '', 0.100000, 0.200000, 0.30, 1000.40",
+
+    4 => "4, 1004, '4', 4.100000, 4.200000, 4.30, 1004.40",
+    5 => "5, 1005, '5', 5.100000, 5.200000, 5.30, 1005.40",
+    6 => "6, 1006, '6', 6.100000, 6.200000, 6.30, 1006.40",
+    7 => "7, 1007, '7', 7.100000, 7.200000, 7.30, 1007.40",
+    );
+$sth = $dbh->prepare ("select * from xx where xs between 4 and 7 or xs = 0");
 $sth->execute ();
-while (my ($xs, $xl, $xc, $xf, $xa) = $sth->fetchrow_array ()) {
-    print STDERR "\t[[$xs, $xl, '$xc', $xf, $xa]]\n";
+while (my ($xs, $xl, $xc, $xf, $xr, $xa, $xh) = $sth->fetchrow_array ()) {
+    ok ("fetchrow_array",
+	$result_ok{$xs} eq "$xs, $xl, '$xc', $xf, $xr, $xa, $xh");
     }
+$sth->finish ();
+
+$sth = $dbh->prepare ("select xl, xc from xx where xs = 8");
+$sth->execute ();
+my $ref = $sth->fetchrow_arrayref ();
+ok ("fetchrow_arrayref",
+    "@$ref" eq "1008, 8");
+$sth->finish ();
+
+$sth = $dbh->prepare ("select xl from xx where xs = 9");
+$sth->execute ();
+$ref = $sth->fetchrow_hashref ();
+ok ("fetchrow_hashref",
+    keys %$ref == 1 && exists $ref->{xl} && $ref->{xl} == 1009);
 $sth->finish ();
 
 # SELECT FROM THE TABLE, NESTED
@@ -102,7 +123,8 @@ while (my ($xs) = $sth->fetchrow_array ()) {
     $sth2->execute ();
     if ($sth2) {
 	while (my ($xl) = $sth2->fetchrow_array ()) {
-	    print STDERR "\t<< $xs => $xl >>\n";
+	    ok ("fetch nested",
+		($xs == 3 || $xs == 5) && $xl == $xs + 999);
 	    }
 	}
     $sth2->finish ();
@@ -114,7 +136,8 @@ $sth = $dbh->prepare ("select xs from xx where xs = ?");
 foreach my $xs (3 .. 5) {
     $sth->execute ($xs);
     my ($xc) = $sth->fetchrow_array ();
-    print STDERR "\t<< $xs => '$xc' >>\n";
+    ok ("fetch positional",
+	$xs == $xc);
     }
 $sth->finish ();
 
@@ -148,6 +171,36 @@ $sth->execute ("-1");
 $sth->execute ("  1");
 $sth->execute (" -1");
 #$sth->execute ("x");	# Should warn, which it does.
+$sth->finish ();
+
+# Check final state
+my @rec = (
+    "0, 1000, , 0.100000, 0.200000, 0.30, 1000.40",
+    "1, 1001, 1, 1.100000, 1.200000, 1.30, 1001.40",
+    "2, 1002, 2, 2.100000, 2.200000, 2.30, 1002.40",
+    "3, 1003, 33, 3.100000, 3.200000, 3.30, 1003.40",
+    "4, 1004, 4, 4.100000, 4.200000, 4.35, 1004.40",
+    "5, 1005, 5, 5.150000, 5.200000, 5.30, 1005.40",
+    "6, 1006, 6, 6.100000, 6.200000, 6.30, 1006.40",
+    "7, 1007, 7, 7.100000, 7.200000, 7.30, 1007.40",
+    "8, 1008, 8, 8.100000, 8.200000, 8.30, 1008.40",
+    "9, 1009, 9, 9.100000, 9.200000, 9.30, 1009.40",
+    "10, 1010, 12345, 10.100000, 10.200000, 10.30, 1010.40",
+    "11, 1011, 11, 11.100000, 11.200000, 11.30, 1011.40",
+    "12, 1012, 12, 12.100000, 12.200000, 12.30, 1012.40",
+    "13, 1013, 13, 13.100000, 13.200000, 13.30, 1013.40",
+    "14, 1014, 14, 14.100000, 14.200000, 14.30, 1014.40",
+    "15, 1015, 15, 15.100000, 15.200000, 15.30, 1015.40",
+    "16, 1016, 16, 16.100000, 16.200001, 16.30, 1016.40",
+    "17, 1017, 17, 17.100000, 17.200001, 17.30, 1017.40",
+    "18, 1018, 18, 18.100000, 18.200001, 18.30, 1018.40",
+    );
+$sth = $dbh->prepare ("select * from xx order by xs");
+$sth->execute ();
+while (my @f = $sth->fetchrow_array ()) {
+    ok ("final state",
+	"@f" eq shift @rec);
+    }
 $sth->finish ();
 
 # DROP THE TABLE

@@ -206,6 +206,8 @@ char      *auth;
     DBIc_set (imp_dbh, DBIcf_AutoCommit, 0);
     DBIc_set (imp_dbh, DBIcf_ChopBlanks, 1);
 
+    imp_dbh->id = n_dbh++;
+
     unless (auth && *auth)
 	auth = getenv ("USCHEMA");
     if ((!user || !*user) && auth && *auth) {
@@ -449,9 +451,9 @@ short id;
     return (1);
     } /* set_sth_id */
 
-static int use_sth_id (dbh, id)
+static int use_sth_id (dbh, dbhid, id)
 SV *dbh;
-short id;
+short dbhid, id;
 {
     if (id <= 0 || id > n_sth_id * 8) {
 	error (dbh, 0, "Cannot use invalid statement ID", 0);
@@ -462,12 +464,56 @@ short id;
 	error (dbh, 0, "Cannot use statement ID", 0);
 	return (0);
 	}
-    (void)sprintf (u_sql_nm, "u_sql_st_%06d", id);
-    (void)sprintf (c_sql_nm, "c_sql_st_%06d", id);
-    (void)sprintf (o_sql_nm, "o_sql_st_%06d", id);
-    (void)sprintf (i_sql_nm, "i_sql_st_%06d", id);
+    (void)sprintf (u_sql_nm, "u_sql_%02d_%06d", dbhid, id);
+    (void)sprintf (c_sql_nm, "c_sql_%02d_%06d", dbhid, id);
+    (void)sprintf (o_sql_nm, "o_sql_%02d_%06d", dbhid, id);
+    (void)sprintf (i_sql_nm, "i_sql_%02d_%06d", dbhid, id);
     return (1);
     } /* use_sth_id */
+
+int dbd_st_describe (dbh, imp_sth, num_fields)
+SV	  *dbh;
+imp_sth_t *imp_sth;
+int	  num_fields;
+{
+    register	imp_fld_t	*f;
+    register	int		i;
+
+    dbg (3, "DBD::Unify::st_describe %s (%d fields)\n", o_sql_nm, num_fields);
+
+    unless (num_fields > 0 &&
+           (imp_sth->fld = (imp_fld_t *)calloc (num_fields, sizeof (imp_fld_t))))
+	return (0);
+
+    for (fix = 1; fix <= num_fields; fix++) {
+	f = &imp_sth->fld[fix - 1];
+	EXEC SQL
+	    GET DESCRIPTOR :o_sql_nm
+	    VALUE :fix
+		  :ftp = TYPE,
+		  :fln = LENGTH,
+		  :fpr = PRECISION,
+		  :fic = INDICATOR,
+		  :fsc = SCALE,
+		  :fnl = NULLABLE,
+		  :fnm = NAME;
+	unless (sqlError (dbh))
+	    return (0);
+
+	i = 40;
+	while (i && (!fnm[i - 1] || fnm[i - 1] == ' '))
+	    i--;
+	fnm[i] = (char)0;
+	(void)strncpy (f->fnm, fnm, 40);
+	f->ftp = ftp;
+	f->fln = fln;
+	f->fpr = fpr;
+	f->fic = fic;
+	f->fsc = fsc;
+	f->fnl = fnl;
+	}
+    return (num_fields);
+    } /* dbd_st_describe */
 
 int dbd_st_prepare (sth, imp_sth, statement, attribs)
 SV        *sth;
@@ -487,11 +533,13 @@ SV        *attribs;   /* unused */
     unless (imp_sth->id = new_sth_id (dbh))
 	return (-1);
 
-    unless (use_sth_id (dbh, imp_sth->id))
+    unless (use_sth_id (dbh, imp_dbh->id, imp_sth->id))
 	return (-1);
     dbg (2, "DBD::Unify::st_prepare %s (\"%s\")\n", u_sql_nm, statement);
     if (imp_sth->statement = (char *)malloc (strlen (statement) + 2))
 	(void)strcpy (imp_sth->statement, statement);
+    imp_sth->open = 0;
+    imp_sth->fld  = (imp_fld_t *)0;
 
     EXEC SQL
 	ALLOCATE   :c_sql_nm
@@ -531,6 +579,7 @@ SV        *attribs;   /* unused */
     unless (sqlError (dbh))
 	return (-1);
     DBIc_NUM_FIELDS (imp_sth) = n_sql_st;
+    dbd_st_describe (dbh, imp_sth, n_sql_st);
 
     /* Check for positional parameters */
     {   register char	*src = statement;
@@ -594,7 +643,7 @@ IV        maxlen;
 
     D_imp_dbh_from_sth;
 
-    unless (use_sth_id (dbh, imp_sth->id))
+    unless (use_sth_id (dbh, imp_dbh->id, imp_sth->id))
 	return (-1);
     dbg (2, "DBD::Unify::st_bind %s\n", u_sql_nm);
 
@@ -606,6 +655,15 @@ IV        maxlen;
         croak ("DBD::Unify::st_bind: parameter outside range 1..%d",
             DBIc_NUM_PARAMS (imp_sth));
 
+dbg (2, "\tActive: %d, open: %d\n", DBIc_ACTIVE (imp_sth), imp_sth->open);
+    if (DBIc_ACTIVE (imp_sth) && imp_sth->open) {	/* Re-execute	*/
+	EXEC SQL
+	    CLOSE :c_sql_nm;
+	dbg (3, "    After close,    sqlcode = %d\n", SQLCODE);
+	unless (sqlError (dbh))
+	    return (-1);
+	imp_sth->open = 0;
+	}
 
     dbg (3, "     Field %3d: ", fix);
 #ifdef __osf__
@@ -785,16 +843,17 @@ imp_sth_t *imp_sth;
     dTHR;
     D_imp_dbh_from_sth;
 
-    unless (use_sth_id (dbh, imp_sth->id))
+    unless (use_sth_id (dbh, imp_dbh->id, imp_sth->id))
 	return (-1);
     dbg (2, "DBD::Unify::st_execute %s\n", u_sql_nm);
 
-    if (DBIc_ACTIVE (imp_sth)) {	/* Re-execute	*/
+    if (DBIc_ACTIVE (imp_sth) && imp_sth->open) {	/* Re-execute	*/
 	EXEC SQL
 	    CLOSE :c_sql_nm;
 	dbg (3, "    After close,    sqlcode = %d\n", SQLCODE);
 	unless (sqlError (dbh))
 	    return (-1);
+	imp_sth->open = 0;
 	}
 
     if (DBIc_NUM_FIELDS (imp_sth) == 0) {
@@ -827,6 +886,7 @@ imp_sth_t *imp_sth;
     dbg (3, "    After open,     sqlcode = %d\n", SQLCODE);
     unless (sqlError (dbh))
 	return (-1);
+    imp_sth->open = 1;
 
     DBIc_ACTIVE_on (imp_sth);
     return (0);
@@ -842,7 +902,7 @@ imp_sth_t *imp_sth;
 
     D_imp_dbh_from_sth;
 
-    unless (use_sth_id (dbh, imp_sth->id))
+    unless (use_sth_id (dbh, imp_dbh->id, imp_sth->id))
 	return (Nullav);
     dbg (2, "DBD::Unify::st_fetch %s\n", u_sql_nm);
 
@@ -850,9 +910,6 @@ imp_sth_t *imp_sth;
 	error (sth, -7, "fetch without open cursor", 0);
 	return (Nullav);
 	}
-
-    EXEC SQL
-	WHENEVER NOT FOUND GOTO :u_sql_st_end;
 
     EXEC SQL
 	FETCH                :c_sql_nm
@@ -864,6 +921,11 @@ imp_sth_t *imp_sth;
     dbg (3, "    Fetched         sqlcode = %d, fields = %d\n",
 	SQLCODE, num_fields);
 
+    if (SQLCODE == UEEOSCN || SQLCODE == -UEEOSCN) {
+	dbg (3, "     Fetch done (end of scan)\n");
+	return (Nullav);
+	}
+
     unless (av_len (av) + 1 == num_fields) {
 	int ro = SvREADONLY (av);
 	if (ro)
@@ -874,25 +936,30 @@ imp_sth_t *imp_sth;
 	    SvREADONLY_on (av);
 	}
 
+    unless (imp_sth->fld || dbd_st_describe (imp_sth, num_fields)) {
+	croak ("Describe failed during %s->FETCH ()", SvPV (sth, na));
+	return (Nullav);
+	}
+
     for (fix = 1; fix <= num_fields; fix++) {
+	auto	imp_fld_t *f  = &imp_sth->fld[fix - 1];
 	auto	SV        *sv = AvARRAY(av)[fix - 1];
 
 	SvREADONLY_off (sv);
 
-	dbg (3, "     Field %3d: ", fix);
+	(void)strcpy (fnm, f->fnm);
+	fln = f->fln;
+	ftp = f->ftp;
+	fln = f->fln;
+	fpr = f->fpr;
+	fsc = f->fsc;
+	fnl = f->fnl;
 	EXEC SQL
 	    GET DESCRIPTOR :o_sql_nm
 	    VALUE :fix
-		  :ftp = TYPE,
-		  :fln = LENGTH,
-		  :fpr = PRECISION,
-		  :fic = INDICATOR,
-		  :fsc = SCALE,
-		  :fnl = NULLABLE,
-		  :fnm = NAME;
-	unless (sqlError (dbh))
-	    return (Nullav);
-
+		  :fic = INDICATOR;
+	f->fic = fic;
+	dbg (3, "     Field %3d: ", fix);
 	dbg (4, "[%02X %02X %02X %02X %02X] ",
 	    (unsigned char)ftp, fln, fpr, fsc, fic);
 	dbg (3, "%-.8s: ", fnm);
@@ -928,12 +995,14 @@ imp_sth_t *imp_sth;
 			      :fdF = DATA;
 		    unless (sqlError (dbh))
 			return (Nullav);
-		    sv_setnv (sv, (double)fdF);
+		    (void)sprintf (fdC, "%.*f", fsc, fdF);
+		    sv_setpvn (sv, fdC, strlen (fdC));
+		 /* sv_setnv (sv, (double)fdF); */
 		    dbg (3, "%lf", SvNV (sv));
 		    break;
 
-		case SQLREAL:
-		case SQLDBLPREC:
+		case SQLREAL:		/* fpr = 32	*/
+		case SQLDBLPREC:	/* fpr = 64	*/
 		    dbg (3, "DOUBL %1d.%2d: ", fln, fpr);
 		    EXEC SQL
 			GET DESCRIPTOR :o_sql_nm
@@ -941,8 +1010,10 @@ imp_sth_t *imp_sth;
 			      :fdD = DATA;
 		    unless (sqlError (dbh))
 			return (Nullav);
-		    sv_setnv (sv, fdD);
-		    dbg (3, "%lf", SvNV (sv));
+		    (void)sprintf (fdC, "%lf", fdD);
+		    sv_setpvn (sv, fdC, strlen (fdC));
+		 /* sv_setnv  (sv, fdD); */
+		    dbg (3, "%lf (%s)", SvNV (sv), fdC);
 		    break;
 
 		case SQLAMOUNT:
@@ -953,8 +1024,10 @@ imp_sth_t *imp_sth;
 			      :fdF = DATA;
 		    unless (sqlError (dbh))
 			return (Nullav);
-		    sv_setnv (sv, (double)fdF);
-		    dbg (3, "%lf", SvNV (sv));
+		    (void)sprintf (fdC, "%.*f", fsc, fdF);
+		    sv_setpvn (sv, fdC, strlen (fdC));
+		 /* sv_setnv  (sv, (double)fdF); */
+		    dbg (3, "%lf (%s)", SvNV (sv), fdC);
 		    break;
 
 		case SQLHUGEAMT:
@@ -965,7 +1038,9 @@ imp_sth_t *imp_sth;
 			      :fdD = DATA;
 		    unless (sqlError (dbh))
 			return (Nullav);
-		    sv_setnv (sv, fdD);
+		    (void)sprintf (fdC, "%.*lf", fsc, fdD);
+		    sv_setpvn (sv, fdC, strlen (fdC));
+		 /* sv_setnv (sv, fdD); */
 		    dbg (3, "%lf", SvNV (sv));
 		    break;
 
@@ -1023,11 +1098,6 @@ imp_sth_t *imp_sth;
 
     dbg (3, "     Fetch done\n");
     return (av);
-
-u_sql_st_end:
-
-    dbg (3, "     Fetch done (end of scan)\n");
-    return (Nullav);
     } /* dbd_st_fetch */
 
 int dbd_st_rows (sth, imp_sth)
@@ -1056,7 +1126,9 @@ imp_sth_t *imp_sth;
     SV *dbh = DBIc_PARENT_H (imp_sth);
     dTHR;
 
-    unless (use_sth_id (dbh, imp_sth->id))
+    D_imp_dbh_from_sth;
+
+    unless (use_sth_id (dbh, imp_dbh->id, imp_sth->id))
 	return (-1);
     dbg (3, "DBD::Unify::st_finish %s\n", u_sql_nm);
 
@@ -1066,6 +1138,7 @@ imp_sth_t *imp_sth;
 	dbg (3, "    After close,    sqlcode = %d\n", SQLCODE);
 	unless (sqlError (dbh))
 	    return (-1);
+	imp_sth->open = 0;
 
 	/*	UNIFY design flaw? (method doesn't exist)
 	EXEC SQL
@@ -1170,42 +1243,61 @@ SV        *keysv;
     if (kl == 13 && strEQ (key, "NUM_OF_PARAMS"))	/* handled by DBI */
 	return (Nullsv);	
 
+    unless (imp_sth->fld) {
+	}
+
     i = DBIc_NUM_FIELDS (imp_sth);
 
-#ifdef NOTYET	/* From Oracle DBD, seems pretty complete (and readable) */
-    if (kl == 11 && strEQ (key, "uni_lengths")) {
+    if (kl == 4 && strEQ (key, "NAME")) {
 	AV *av = newAV ();
 	retsv = newRV (sv_2mortal ((SV*)av));
 	while (--i >= 0)
-	    av_store (av, i, newSViv ((IV)imp_sth->fbh[i].disize));
-	}
-    else
-    if (kl == 9 && strEQ (key, "uni_types")) {
-	AV *av = newAV ();
-	retsv = newRV (sv_2mortal ((SV*)av));
-	while (--i >= 0)
-	    av_store (av, i, newSViv (imp_sth->fbh[i].dbtype));
+	    av_store (av, i, newSVpv (imp_sth->fld[i].fnm, 0));
 	}
     else
     if (kl == 4 && strEQ (key, "TYPE")) {
 	AV *av = newAV ();
 	retsv = newRV (sv_2mortal ((SV*)av));
 	while (--i >= 0)
-	    av_store (av, i, newSViv (ora2sql_type (imp_sth->fbh[i].dbtype)));
+	    av_store (av, i, newSViv (imp_sth->fld[i].ftp));
+	 /* av_store (av, i, newSViv (ora2sql_type (imp_sth->fld[i].ftp)));
+	    */
 	}
     else
-    if (kl == 5 && strEQ (key, "SCALE")) {
+    if (kl == 9 && strEQ (key, "uni_types")) {
 	AV *av = newAV ();
 	retsv = newRV (sv_2mortal ((SV*)av));
 	while (--i >= 0)
-	    av_store (av, i, newSViv (imp_sth->fbh[i].scale));
+	    av_store (av, i, newSViv (imp_sth->fld[i].ftp));
 	}
     else
     if (kl == 9 && strEQ (key, "PRECISION")) {
 	AV *av = newAV ();
 	retsv = newRV (sv_2mortal ((SV*)av));
 	while (--i >= 0)
-	    av_store (av, i, newSViv (imp_sth->fbh[i].prec));
+	    av_store (av, i, newSViv (imp_sth->fld[i].fpr));
+	}
+    else
+    if (kl == 5 && strEQ (key, "SCALE")) {
+	AV *av = newAV ();
+	retsv = newRV (sv_2mortal ((SV*)av));
+	while (--i >= 0)
+	    av_store (av, i, newSViv (imp_sth->fld[i].fsc));
+	}
+    else
+    if (kl == 8 && strEQ (key, "NULLABLE")) {
+	AV *av = newAV ();
+	retsv = newRV (sv_2mortal ((SV*)av));
+	while (--i >= 0)
+	    av_store (av, i, boolSV (imp_sth->fld[i].fnl));
+	}
+    else
+#ifdef NOTYET	/* From Oracle DBD, seems pretty complete (and readable) */
+    if (kl == 11 && strEQ (key, "uni_lengths")) {
+	AV *av = newAV ();
+	retsv = newRV (sv_2mortal ((SV*)av));
+	while (--i >= 0)
+	    av_store (av, i, newSViv ((IV)imp_sth->fld[i].disize));
 	}
     else
 #ifdef ORACLE
@@ -1222,20 +1314,6 @@ SV        *keysv;
 	}
     else
 #endif
-    if (kl == 4 && strEQ (key, "NAME")) {
-	AV *av = newAV ();
-	retsv = newRV (sv_2mortal ((SV*)av));
-	while (--i >= 0)
-	    av_store (av, i, newSVpv ((char*)imp_sth->fbh[i].name, 0));
-	}
-    else
-    if (kl == 8 && strEQ (key, "NULLABLE")) {
-	AV *av = newAV ();
-	retsv = newRV (sv_2mortal ((SV*)av));
-	while (--i >= 0)
-	    av_store (av, i, boolSV (imp_sth->fbh[i].nullok));
-	}
-    else
 #endif
 	return (Nullsv);
 

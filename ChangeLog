@@ -1,11 +1,29 @@
+*** Release 0.06
+
+    Wed 03 May 2000 <h.m.brand@hccnet.nl>
+
+	- Added imp_dbh.id to allow multiple DB handles on same DB preventing
+	  conflicts with dynamic naming.
+	  Multiple different Unify DB's is not (yet) supported by the Unify
+	  E/SQL environment. :-((
+	- Stringified REAL, FLOAT and (HUGE) AMOUNT values on fetch, but still
+	  preserving the numeric context (it's an SvNV alright).
+	- Updated pod sections in Unify.pm
+	- Saved field descriptor data to implement correct return values of
+	  $sth->fetchrow_hashref () calls
+	- Test now realy CHECKS what happened, not only spits out what I
+	  would recognize as succeeded test output. I still rely on RaiseError
+	  to crash the test on DB failures.
+
 *** Release 0.05
 
     Thu 23 Mar 2000 <h.m.brand@hccnet.nl>
 
 	- Recognize strings w/ negative numbers in bind where !SvIOK (value)
 	  In fact drop the SvIOK () check alltogether and let SvIV () do the
-	  job, including the warnings.
-	- index display in bind failure
+	  job, including the warnings. I still want to be able to check the
+	  value BEFORE the warning, but we'll see ...
+	- Index display in bind failure
 
 *** Release 0.04
 
@@ -14,8 +32,8 @@
 	- Oops, forgot to close open cursor on re-execute
 	- Full implementation of positional parameters includes
 	  Auto conversion from SvPV's (string) to SvIV's (numeric)
-	- test includes positional inserts
-	- test includes updates and positional updates
+	- Test includes positional inserts
+	- Test includes updates and positional updates
 	- Added $dbh->{DBDverbose} (see pod)
 
 *** Release 0.03
