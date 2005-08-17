@@ -1,9 +1,32 @@
+*** Release 0.42
+
+    Wed 17 Aug 2005 <h.m.brand@xs4all.nl>
+
+	- implemented foreign_key_info ()
+
+*** Release 0.41
+
+    Mon 24 May 2004 <h.m.brand@hccnet.nl>
+
+	- t/21-uni-regex.t now skips on uvsn < 8.2
+
+*** Release 0.40
+
+    Thu 29 Apr 2004 <h.m.brand@hccnet.nl>
+
+	- Made DBI-1.42 prerequisite
+	- All tests now under Test::More
+	- Ran Devel::Cover-0.41
+	- Added t/40-info.t
+	- Return error on table_info (catalog); # Unify has no catalogs
+
 *** Release 0.31
 
-    Tue 16 Mar 2004 <h.m.brand@hccnet.nl>
+    Thu 22 Apr 2004 <h.m.brand@hccnet.nl>
 
 	- Tested against DBI-1.41 through 1.42
 	- ScanLevel to uni_scanlevel
+	- Support for dynamic loading
 
 *** Release 0.30
 

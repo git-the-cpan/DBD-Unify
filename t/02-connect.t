@@ -1,40 +1,38 @@
-#!perl -w
+#!/usr/bin/perl
 
-BEGIN { $tests = 4 }
+use strict;
+use warnings;
 
-sub ok ($$;$) {
-    my ($n, $ok, $warn) = @_;
-    ++$t;
-    die "sequence error, expected $n but actually $t"
-    if $n and $n != $t;
-    ($ok) ? print "ok $t\n"
-	  : print "# failed test $t at line ".(caller)[2]."\nnot ok $t\n";
-    if (!$ok && $warn) {
-	$warn = $DBI::errstr || "(DBI::errstr undefined)" if $warn eq "1";
-	warn "$warn\n";
-	}
-    } # ok
+use Test::More tests => 10;
 
-use DBI;
-$| = 1;
+BEGIN { use_ok ("DBI") };
 
-my $schema = "DBUTIL";
-my $dbh    = DBI->connect ("dbi:Unify:", "", $schema);
+my ($schema, $dbh) = ("DBUTIL");
+
+ok ($dbh = DBI->connect ("dbi:Unify:", "", $schema), "Connect");
 
 unless ($dbh) {
-    warn "Unable to connect to Unify ($DBI::errstr)\nTests skiped.\n";
-    print "1..0\n";
+    BAILOUT ("Unable to connect to Unify ($DBI::errstr)\n");
     exit 0;
     }
 
-print "1..$tests\n";
-
 my $sth = $dbh->prepare ("select * from DIRS");
-ok (0, $sth->execute);
-ok (0, $sth->{Active});
+ok ($sth->execute,		"execute");
+ok ($sth->{Active},		"sth attr Active");
 $sth->finish;
-ok (0, !$sth->{Active});
+ok (!$sth->{Active},	"sth attr not Active");
 $dbh->disconnect;	# Should auto-destroy $sth;
-ok (0, !$dbh->ping);
+ok (!$dbh->ping,		"disconnected");
+
+{   local $SIG{__WARN__} = sub {};
+    delete $ENV{UNIFY};
+    ok (!DBI->connect ("dbi:Unify:", "", $schema), "Connect \$UNIFY unset");
+    $ENV{UNIFY} = undef;
+    ok (!DBI->connect ("dbi:Unify:", "", $schema), "Connect \$UNIFY undef");
+    $ENV{UNIFY} = "";
+    ok (!DBI->connect ("dbi:Unify:", "", $schema), "Connect \$UNIFY ''");
+    $ENV{UNIFY} = "/dev/null";
+    ok (!DBI->connect ("dbi:Unify:", "", $schema), "Connect \$UNIFY '/dev/null'");
+    }
 
 exit 0;

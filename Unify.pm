@@ -3,9 +3,10 @@
 #   You may distribute under the terms of either the GNU General Public
 #   License or the Artistic License, as specified in the Perl README file.
 
-require 5.005;
+require 5.006;
 
 use strict;
+use warnings;
 
 use Carp;
 
@@ -78,11 +79,11 @@ DBD::Unify - DBI driver for Unify database systems
 
 package DBD::Unify;
 
-use DBI 1.19;
+use DBI 1.42;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.31";
+$VERSION = "0.42";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -206,11 +207,16 @@ sub table_info ($;$$$$)
 	exists $attr->{TABLE_NAME}  and $table  = $attr->{TABLE_NAME};
 	exists $attr->{TABLE_TYPE}  and $type   = $attr->{TABLE_TYPE};
 	}
+    if ($catalog) {
+	$dbh->{Warn} and
+	    Carp::carp "Unify does not support catalogs in table_info\n";
+	return;
+	}
     my @where;
-    $schema and push @where, "OWNR       = '$schema'";
-    $table  and push @where, "TABLE_NAME = '$table'";
+    $schema and push @where, "OWNR       like '$schema'";
+    $table  and push @where, "TABLE_NAME like '$table'";
     $type   and $type = uc substr $type, 0, 1;
-    $type   and push @where, "TABLE_TYPE = '$type'";
+    $type   and push @where, "TABLE_TYPE like '$type'";
     local $" = " and ";
     my $where = @where ? " where @where" : "";
     my $sth = $dbh->prepare (
@@ -222,7 +228,63 @@ sub table_info ($;$$$$)
     $sth;
     } # table_info
 
+# $sth = $dbh->foreign_key_info (
+#            $pk_catalog, $pk_schema, $pk_table,
+#            $fk_catalog, $fk_schema, $fk_table,
+#            \%attr);
+sub foreign_key_info ($$$$$$;$)
+{
+    my $dbh = shift;
+    my ($Pcatalog, $Pschema, $Ptable,
+	$Fcatalog, $Fschema, $Ftable, $attr) = (@_, {});
+
+    my @where;
+    $Pschema and push @where, "REFERENCED_OWNER  = '$Pschema'";
+    $Ptable  and push @where, "REFERENCED_TABLE  = '$Ptable'";
+    $Fschema and push @where, "REFERENCING_OWNER = '$Fschema'";
+    $Ftable  and push @where, "REFERENCING_TABLE = '$Ftable'";
+
+    my $where = @where ? "where " . join " and " => @where : "";
+    my $sth = $dbh->prepare (join "\n",
+	"select INDEX_NAME, ",
+	"       REFERENCED_OWNER,  REFERENCED_TABLE,  REFERENCED_COLUMN,",
+	"       REFERENCING_OWNER, REFERENCING_TABLE, REFERENCING_COLUMN,",
+	"       REFERENCING_COLUMN_ORD",
+	"from   SYS.LINK_INDEXES",
+	$where);
+    $sth or return;
+    $sth->execute;
+    my @fki;
+    while (my @sli = $sth->fetchrow_array) {
+	push @fki, [
+	    undef, @sli[1..3],
+	    undef, @sli[4..6], $sli[7] + 1,
+	    undef, undef,
+	    $sli[0], undef,
+	    undef, undef
+	    ];
+	}
+    $sth->finish;
+    $sth = undef;
+    
+    DBI->connect ("dbi:Sponge:", "", "", { RaiseError => 1 })->prepare (
+	"select link_info $where", {
+	    rows => \@fki,
+	    NAME => [qw(
+		uk_table_cat uk_table_schem uk_table_name uk_column_name
+		fk_table_cat fk_table_schem fk_table_name fk_column_name
+		ordinal_position
+
+		update_rule delete_rule
+		fk_name uk_name
+		deferability unique_or_primary
+		)],
+	    {}
+	    });
+    } # link_info
+
 # type = "R" ? references me : references
+# This is to be converted to foreign_key_info
 sub link_info ($;$$$$)
 {
     my $dbh = shift;
@@ -436,11 +498,11 @@ comp.lang.perl.modules newsgroup and the dbi-users mailing list
 DBI/DBD was developed by Tim Bunce, <Tim.Bunce@ig.co.uk>, who also
 developed the DBD::Oracle.
 
-H.Merijn Brand, <h.m.brand@hccnet.nl> developed the DBD::Unify extension.
+H.Merijn Brand, <h.m.brand@xs4all.nl> developed the DBD::Unify extension.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 1999-2004 H.Merijn Brand
+Copyright (C) 1999-2005 H.Merijn Brand
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

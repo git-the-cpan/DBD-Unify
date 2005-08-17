@@ -1,6 +1,8 @@
-#!perl -w
+#!/usr/bin/perl
 
-print "1..0\n";
+use strict;
+use warnings;
 
-exists $ENV{DBD_UNIFY_SKIP_27} or
-    print STDERR "\nTo disable future max tests: setenv DBD_UNIFY_SKIP_27 1\n";
+use Test::More tests => 1;
+
+ok (1, "Done");

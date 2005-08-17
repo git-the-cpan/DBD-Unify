@@ -1,25 +1,12 @@
 #!/usr/bin/perl
 
+use strict;
+use warnings;
+
+use Test::More tests => 145;
+
 use DBI qw(:sql_types);
 
-$verbose =   0;
-$ntests  =  40;
-
-my $t = 0;
-sub ok ($$)
-{
-    my ($tst, $ok) = @_;
-    $t++;
-    $verbose and
-	printf STDERR "%2d: %-20s %s\n", $t, $tst, $ok ? "OK" : "NOT OK";
-    ($ok) ? print "ok $t\n" : print "not ok $t\n";
-    } # ok
-
-unless (exists $ENV{UNIFY}  && -d $ENV{UNIFY}) {
-    warn "\$UNIFY not set";
-    print "1..0\n";
-    exit 0;
-    }
 my $UNIFY  = $ENV{UNIFY};
 local $ENV{DATEFMT} = 'MM/DD/YY';
 
@@ -30,37 +17,23 @@ unless (exists $ENV{DBPATH} && -d $ENV{DBPATH} && -r "$ENV{DBPATH}/file.db") {
     }
 my $dbname = "DBI:Unify:$ENV{DBPATH}";
 
-sub connect_db ($)
-{
-    # Connects to the database.
-    # If this fails everything else is in vain!
-    my ($dbname) = @_;
-
-    $verbose and
-	print "Testing: DBI->connect ('$dbname'):\n";
-
-    my $dbh = DBI->connect ($dbname, undef, "", {
+my $dbh;
+ok ($dbh = DBI->connect ($dbname, undef, "", {
 	RaiseError    => 1,
 	PrintError    => 1,
 	AutoCommit    => 0,
 	ChopBlanks    => 1,
-	uni_verbose   => $verbose,
+	uni_verbose   => 0,
 	uni_scanlevel => 7,
-	});
-    unless ($dbh) {
-        print "1..0\n";
-        warn "Cannot connect to database $dbname: $DBI::errstr\n";
-        exit 0;
-	}
-    print "1..$ntests\nok 1\n";
-    $dbh;
-    } # connect_db
+	}), "connect with attributes");
 
-my $dbh = connect_db ($dbname) or die "connect";
-$t = 1;
+unless ($dbh) {
+    BAILOUT ("Unable to connect to Unify ($DBI::errstr)\n");
+    exit 0;
+    }
 
-# CREATE THE TABLE
-$dbh->do (join " " =>
+ok (1, "-- CREATE THE TABLE");
+ok ($dbh->do (join " " =>
     "create table xx (",
     "    xs numeric       (4) not null,",
     "    xl numeric       (9),",
@@ -72,26 +45,27 @@ $dbh->do (join " " =>
     "    xt time             ,",
     "    xd date             ,",
     "    xe huge date         ",
-    ")");
-$dbh->commit;
+    ")"), "create");
+ok ($dbh->commit, "commit");
 
-# FILL THE TABLE
-$dbh->do ("insert into xx values (0,1000,'   ',0.1,0.2,0.3,1000.4,12:40,11/11/89,7/21/00)");
+ok (1, "-- FILL THE TABLE");
+ok ($dbh->do ("insert into xx values (0,1000,'   ',0.1,0.2,0.3,1000.4,12:40,11/11/89,7/21/00)"), "insert 0");
 foreach my $v ( 1 .. 9 ) {
-    $dbh->do ("insert into xx values ($v,100$v,'$v',$v.1,$v.2,$v.3,100$v.4,"
-    	."12:40,5/20/06,7/21/00)");
+    ok ($dbh->do ("insert into xx values ($v,100$v,'$v',$v.1,$v.2,$v.3,100$v.4,"
+	."12:40,5/20/06,7/21/00)"), "insert $v");
     }
-# FILL THE TABLE, POSITIONAL
-my $sth = $dbh->prepare ("insert into xx values (?,?,?,?,?,?,?,?,?,?)");
+ok (1, "-- FILL THE TABLE, POSITIONAL");
+my $sth;
+ok ($sth = $dbh->prepare ("insert into xx values (?,?,?,?,?,?,?,?,?,?)"), "ins prepare");
 foreach my $v ( 10 .. 18 ) {
-    $sth->execute ($v, 1000 + $v, "$v", $v + .1, $v + .2, $v + .3, 1000.4 + $v,
-    	'11:31', '2/28/93', '11/21/89');
+    ok ($sth->execute ($v, 1000 + $v, "$v", $v + .1, $v + .2, $v + .3, 1000.4 + $v,
+	'11:31', '2/28/93', '11/21/89'), "insert $v");
     }
-$sth->finish;
-$dbh->commit;
+ok ($sth->finish, "finish");
+ok ($dbh->commit, "commit");
 
 $" = ", ";
-# SELECT FROM THE TABLE
+ok (1, "-- SELECT FROM THE TABLE");
 my %result_ok = (
     0 => "0, 1000, '', 0.100000, 0.200000, 0.30, 1000.40, 12:40, 11/11/89, 07/21/00",
 
@@ -100,8 +74,8 @@ my %result_ok = (
     6 => "6, 1006, '6', 6.100000, 6.200000, 6.30, 1006.40, 12:40, 05/20/06, 07/21/00",
     7 => "7, 1007, '7', 7.100000, 7.200000, 7.30, 1007.40, 12:40, 05/20/06, 07/21/00",
     );
-$sth = $dbh->prepare ("select * from xx where xs between 4 and 7 or xs = 0");
-# Check the internals
+ok ($sth = $dbh->prepare ("select * from xx where xs between 4 and 7 or xs = 0"), "sel prepare");
+ok (1, "-- Check the internals");
 {   local $" = ":";
     my %attr = (
 	NAME      => "xs:xl:xc:xf:xr:xa:xh:xt:xd:xe",
@@ -113,110 +87,106 @@ $sth = $dbh->prepare ("select * from xx where xs between 4 and 7 or xs = 0");
 	);
     foreach my $attr (qw(NAME uni_types TYPE PRECISION SCALE)) {
 	#printf STDERR "\n%-20s %s\n", $attr, "@{$sth->{$attr}}";
-	ok ("attr $attr", "@{$sth->{$attr}}" eq $attr{$attr});
+	ok ("@{$sth->{$attr}}" eq $attr{$attr}, "attr $attr");
 	}
     }
-$sth->execute;
+ok ($sth->execute, "execute");
 while (my ($xs, $xl, $xc, $xf, $xr, $xa, $xh, $xt, $xd, $xe) = $sth->fetchrow_array ()) {
-    ok ("fetchrow_array",
-	$result_ok{$xs} eq "$xs, $xl, '$xc', $xf, $xr, $xa, $xh, $xt, $xd, $xe");
+    ok ($result_ok{$xs} eq "$xs, $xl, '$xc', $xf, $xr, $xa, $xh, $xt, $xd, $xe",
+	"fetchrow_array $xs");
     }
-$sth->finish;
+ok ($sth->finish, "finish");
 
-$sth = $dbh->prepare ("select xl, xc from xx where xs = 8");
-$sth->execute;
-my $ref = $sth->fetchrow_arrayref;
-ok ("fetchrow_arrayref",
-    "@$ref" eq "1008, 8");
-$sth->finish;
-# test the reexec
-$sth->execute;
-$ref = $sth->fetchrow_arrayref;
-ok ("fetchrow_arrayref",
-    "@$ref" eq "1008, 8");
-$sth->finish;
+ok ($sth = $dbh->prepare ("select xl, xc from xx where xs = 8"), "sel prepare");
+ok ($sth->execute, "execute");
+my $ref;
+ok ($ref = $sth->fetchrow_arrayref, "fetchrow_arrayref");
+ok ("@$ref" eq "1008, 8", "fr_ar values");
+ok ($sth->finish, "finish");
+ok (1, "-- test the reexec");
+ok ($sth->execute, "execute");
+ok ($ref = $sth->fetchrow_arrayref);
+ok ("@$ref" eq "1008, 8", "fr_ar values 2nd");
+ok ($sth->finish, "finish");
 
-$sth = $dbh->prepare ("select xl from xx where xs = 9");
-$sth->execute;
-$ref = $sth->fetchrow_hashref;
-ok ("fetchrow_hashref",
-    keys %$ref == 1 && exists $ref->{xl} && $ref->{xl} == 1009);
-$sth->finish;
+ok ($sth = $dbh->prepare ("select xl from xx where xs = 9"), "sel prepare");
+ok ($sth->execute, "execute");
+ok ($ref = $sth->fetchrow_hashref, "fetchrow_hashref");
+ok (keys %$ref == 1 && exists $ref->{xl} && $ref->{xl} == 1009, "fr_hr values");
+ok ($sth->finish, "finish");
 
-# SELECT FROM THE TABLE, NESTED
-$sth = $dbh->prepare ("select xs from xx where xs in (3, 5)");
-$sth->execute;
+ok (1, "-- SELECT FROM THE TABLE, NESTED");
+ok ($sth = $dbh->prepare ("select xs from xx where xs in (3, 5)"), "sel prepare");
+ok ($sth->execute, "execute");
 while (my ($xs) = $sth->fetchrow_array ()) {
-    my $sth2 = $dbh->prepare ("select xl from xx where xs = @{[$xs - 1]}");
-    $sth2->execute;
+    my $sth2;
+    ok ($sth2 = $dbh->prepare ("select xl from xx where xs = @{[$xs - 1]}"), "sel prepare sth2");
     if ($sth2) {
+	ok ($sth2->execute, "execute");
 	while (my ($xl) = $sth2->fetchrow_array ()) {
-	    ok ("fetch nested",
-		($xs == 3 || $xs == 5) && $xl == $xs + 999);
+	    ok (($xs == 3 || $xs == 5) && $xl == $xs + 999, "nested fetch $xs");
 	    }
 	}
-    $sth2->finish;
+    ok ($sth2->finish, "finish");
     }
-$sth->finish;
+ok ($sth->finish, "finish");
 
-# SELECT FROM THE TABLE, POSITIONAL
-$sth = $dbh->prepare ("select xs from xx where xs = ?");
+ok (1, "-- SELECT FROM THE TABLE, POSITIONAL");
+ok ($sth = $dbh->prepare ("select xs from xx where xs = ?"), "sel prepare");
 foreach my $xs (3 .. 5) {
-    $sth->execute ($xs);
+    ok ($sth->execute ($xs), "execute $xs");
     my ($xc) = $sth->fetchrow_array;
-    ok ("fetch positional",
-	$xs == $xc);
+    ok ($xs == $xc, "fetch positional $xs");
     }
-# Check the bind_columns
+ok (1, "-- Check the bind_columns");
 {   my $xs = 0;
-    $sth->bind_columns (\$xs);
-    $sth->execute (3);
-    $sth->fetchrow_arrayref;
-    ok ("bind_columns",
-    	$xs == 3);
+    ok ($sth->bind_columns (\$xs), "bind \$xs");
+    ok ($sth->execute (3), "execute 3");
+    ok ($sth->fetchrow_arrayref, "fetchrow_arrayref");
+    ok ($xs == 3, "fetched");
     }
-$sth->finish;
+ok ($sth->finish, "finish");
 
-# UPDATE THE TABLE
-$dbh->do ("update xx set xf = xf + .05 where xs = 5");
-$dbh->commit;
+ok (1, "-- UPDATE THE TABLE");
+ok ($dbh->do ("update xx set xf = xf + .05 where xs = 5"), "do update");
+ok ($dbh->commit, "commit");
 
-# UPDATE THE TABLE, POSITIONAL
-$sth = $dbh->prepare ("update xx set xa = xa + .05 where xs = ?");
-$sth->execute (4);
-$sth->finish;
-$dbh->commit;
+ok (1, "-- UPDATE THE TABLE, POSITIONAL");
+ok ($sth = $dbh->prepare ("update xx set xa = xa + .05 where xs = ?"), "do update positional");
+ok ($sth->execute (4), "execute");
+ok ($sth->finish, "finish");
+ok ($dbh->commit, "commit");
 
-# UPDATE THE TABLE, MULTIPLE RECORDS, and COUNT
-$sth = $dbh->prepare ("update xx set xa = xa + .05 where xs = 5 or xs = 6");
-$sth->execute;
-ok ("rows method", $sth->rows == 2);
-$sth->finish;
-$dbh->rollback;
+ok (1, "-- UPDATE THE TABLE, MULTIPLE RECORDS, and COUNT");
+ok ($sth = $dbh->prepare ("update xx set xa = xa + .05 where xs = 5 or xs = 6"), "upd prepare");
+ok ($sth->execute, "execute");
+ok ($sth->rows == 2, "rows method");
+ok ($sth->finish, "finish");
+ok ($dbh->rollback, "rollback");
 
-# UPDATE THE TABLE, POSITIONAL TWICE
-$sth = $dbh->prepare ("update xx set xc = ? where xs = ?");
-$sth->execute ("33", 3);
-$sth->finish;
-$dbh->commit;
+ok (1, "-- UPDATE THE TABLE, POSITIONAL TWICE");
+ok ($sth = $dbh->prepare ("update xx set xc = ? where xs = ?"), "upd prepare");
+ok ($sth->execute ("33", 3), "execute");
+ok ($sth->finish, "finish");
+ok ($dbh->commit, "commit");
 
-# UPDATE THE TABLE, POSITIONAL TWICE, NON-KEY
-$sth = $dbh->prepare ("update xx set xc = ? where xf = 10.1 and xl = ?");
-$sth->execute ("12345", 1010);
-$sth->finish;
-$dbh->commit;
+ok (1, "-- UPDATE THE TABLE, POSITIONAL TWICE, NON-KEY");
+ok ($sth = $dbh->prepare ("update xx set xc = ? where xf = 10.1 and xl = ?"), "upd prepare");
+ok ($sth->execute ("12345", 1010), "execute");
+ok ($sth->finish, "finish");
+ok ($dbh->commit, "commit");
 
-$sth = $dbh->prepare ("select * from xx where xs = ?");
-$sth->execute (1);
-$sth->execute (-1);
-$sth->execute ("1");
-$sth->execute ("-1");
-$sth->execute ("  1");
-$sth->execute (" -1");
+ok ($sth = $dbh->prepare ("select * from xx where xs = ?"), "sel prepare");
+ok ($sth->execute (1), "execute 1");
+ok ($sth->execute (-1), "execute -1");
+ok ($sth->execute ("1"), "execute '1'");
+ok ($sth->execute ("-1"), "execute '-1'");
+ok ($sth->execute ("  1"), "execute '  1'");
+ok ($sth->execute (" -1"), "execute ' -1'");
 #$sth->execute ("x");	# Should warn, which it does.
-$sth->finish;
+ok ($sth->finish, "finish");
 
-# Check final state
+ok (1, "-- Check final state");
 my @rec = (
     "0, 1000, , 0.100000, 0.200000, 0.30, 1000.40, 12:40, 11/11/89, 07/21/00",
     "1, 1001, 1, 1.100000, 1.200000, 1.30, 1001.40, 12:40, 05/20/06, 07/21/00",
@@ -238,21 +208,20 @@ my @rec = (
     "17, 1017, 17, 17.100000, 17.200001, 17.30, 1017.40, 11:31, 02/28/93, 11/21/89",
     "18, 1018, 18, 18.100000, 18.200001, 18.30, 1018.40, 11:31, 02/28/93, 11/21/89",
     );
-$sth = $dbh->prepare ("select * from xx order by xs");
-$sth->execute;
+ok ($sth = $dbh->prepare ("select * from xx order by xs"), "sel prepare final state");
+ok ($sth->execute, "execute");
 while (my @f = $sth->fetchrow_array ()) {
-    ok ("final state",
-	"@f" eq shift @rec);
+    ok (("@f" eq shift @rec), "final $f[0]");
     }
-$sth->finish;
+ok ($sth->finish, "finish");
 
-$dbh->do ("delete xx");
-$dbh->commit;
+ok ($dbh->do ("delete xx"), "do delete");
+ok ($dbh->commit, "commit");
 
-# DROP THE TABLE
-$dbh->do ("drop table xx");
-$dbh->commit;
+ok (1, "-- DROP THE TABLE");
+ok ($dbh->do ("drop table xx"), "do drop");
+ok ($dbh->commit, "commit");
 
-$dbh->disconnect;
+ok ($dbh->disconnect, "disconnect");
 
-1;
+exit 0;

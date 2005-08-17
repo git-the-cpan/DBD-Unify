@@ -1,40 +1,27 @@
-#!perl -w
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Test::More tests => 24;
 
 # Test if all of the documented DBI API is implemented and working OK
 
-BEGIN { $tests = 18 }
-
-sub ok ($$;$) {
-    my ($n, $ok, $warn) = @_;
-    ++$t;
-    die "sequence error, expected $n but actually $t"
-    if $n and $n != $t;
-    ($ok) ? print "ok $t\n"
-	  : print "# failed test $t at line ".(caller)[2]."\nnot ok $t\n";
-    if (!$ok && $warn) {
-	$warn = $DBI::errstr || "(DBI::errstr undefined)" if $warn eq "1";
-	warn "$warn\n";
-	}
-    } # ok
-
-use DBI;
-$| = 1;
-
-print "1..$tests\n";
+BEGIN { use_ok ("DBI") }
 
 # =============================================================================
 
 # DBI Class Methods
 
+my $dbh;
+
 # -- connect
 
-my $dbh = DBI->connect ("dbi:Unify:", "", "");
-ok (0, $dbh);
-$dbh->disconnect;
+ok ($dbh = DBI->connect ("dbi:Unify:", "", ""), "connect");
+ok ($dbh->disconnect, "disconnect");
 undef $dbh;
 
-$dbh = DBI->connect ("dbi:Unify:", "", "", { PrintError => 0 });
-ok (0, $dbh);
+ok ($dbh = DBI->connect ("dbi:Unify:", "", "", { PrintError => 0 }), "connect");
 
 # -- connect_cached
 
@@ -44,23 +31,22 @@ ok (0, $dbh);
 # -- available drivers
 
 my @driver_names = DBI->available_drivers;
-ok (0, 1 == grep m/^Unify$/ => @driver_names);
+like ("@driver_names", qr/\bunify\b/i, "Unify available");
+ok ((1 == grep m/^Unify$/ => @driver_names), "Only one Unify available");
 
 # -- data_sources
 
 my @data_sources = DBI->data_sources ("Unify");
-ok (0, @data_sources == 0 || !$data_sources[0]);
+ok (@data_sources == 0 || !$data_sources[0], "Unify has no centralized source repository");
 
 # -- trace
 
-my $trcfile = "/tmp/dbi-trace.$$";
-$rv = DBI->trace (1, $trcfile);
-ok (0, $rv == 0);
-$rv = DBI->trace (0, $trcfile);
-ok (0, $rv == 1);
+my ($trcfile, $rv) = ("/tmp/dbi-trace.$$");
+ok (!DBI->trace (1, $trcfile), "set trace file");
+ok (1 == DBI->trace (0, $trcfile), "reset trace file");
 open TRC, "< $trcfile";
 my $line = <TRC>;
-ok (0, $line =~ m/\btrace level set to (?:0x0*)?1\b/);
+like ($line, qr{\btrace level set to (?:[O0]x0*)?/?1\b}, "trace level");
 
 # =============================================================================
 
@@ -72,30 +58,31 @@ ok (0, $line =~ m/\btrace level set to (?:0x0*)?1\b/);
 
 # DBI Dynamic Attributes
 
+my $sth;
+
 # -- err, errstr, state and rows as variables
 
-my $sth = $dbh->do ("update foo set baz = 1 where bar = 'Wrong'");
-ok (0, $DBI::err    == -2046);
-ok (0, $DBI::errstr eq "Invalid table name.");
-ok (0, $DBI::state  eq "" || $DBI::state eq "S1000");
-ok (0, $DBI::rows   == -1);
+ok ($sth = $dbh->do ("update foo set baz = 1 where bar = 'Wrong'"), "do update");
+
+ok ($DBI::err    == -2046, "Err -2046");
+ok ($DBI::errstr eq "Invalid table name.", "Invalid table name");
+ok ($DBI::state  eq "" || $DBI::state eq "S1000", "Err state S1000");
+ok ($DBI::rows   == -1, "Err row count");
 
 # Methods common to all handles
 
 # -- err, errstr, state and rows as methods
 
-ok (0, $dbh->err    == -2046);
-ok (0, $dbh->errstr eq "Invalid table name.");
-ok (0, $dbh->state  eq "" || $dbh->state eq "S1000");
-ok (0, $dbh->rows   == -1);
+ok ($dbh->err    == -2046, "Err method");
+ok ($dbh->errstr eq "Invalid table name.", "errstr method");
+ok ($dbh->state  eq "" || $dbh->state eq "S1000", "state method");
+ok ($dbh->rows   == -1, "rows method");
 
 # -- trace_msg
 
-$rv = $dbh->trace_msg ("Foo\n");
-ok (0, $rv eq "");
-$rv = $dbh->trace_msg ("Bar\n", 0);
-ok (0, $rv eq "1");
-ok (0, <TRC> eq "Bar\n");
+ok ($dbh->trace_msg ("Foo\n") eq "", "trace msg");
+ok ($dbh->trace_msg ("Bar\n", 0) eq "1", "trace msg 2");
+ok (<TRC> eq "Bar\n", "message from log");
 
 # -- func
 
@@ -103,10 +90,10 @@ ok (0, <TRC> eq "Bar\n");
 
 # =============================================================================
 
-$dbh->disconnect;
+ok ($dbh->disconnect, "disconnect");
 undef $dbh;
 
 close TRC;
-unlink $trcfile;
+ok ((unlink $trcfile), "unlink");
 
 exit 0;

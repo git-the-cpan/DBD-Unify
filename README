@@ -2,7 +2,7 @@ DBD::Unify --  a Unify interface for Perl 5 using DBI.
 
 This is the Database Driver for the Unify family of database products.
 
-   Copyright (c) 1999-2004  H.Merijn Brand <h.m.brand@hccnet.nl>
+   Copyright (c) 1999-2005  H.Merijn Brand <h.m.brand@xs4all.nl>
 
    You may distribute under the terms of either the GNU General Public
    License or the Artistic License, as specified in the Perl README file.
@@ -12,12 +12,13 @@ See the ChangeLog file for a complete history
 REQUIREMENTS
 
     It has been ported and tested on DataServer 6.3AB, 6.3BE, 8.1CC, 8.1CE,
-    8.1DAB, 8.2AC, 8.2AD, and 8.2B, but this does not mean it might not work
-    on U2000 databases or other DataServer releases.
+    8.1DAB, 8.2AC, 8.2AD, 8.2B, and 8.3F, but this does not mean it might
+    not work on U2000 databases or other DataServer releases.
 
-    It uses DBI 1.40 and perl5.6.1, perl-5.8.3, or perl5.9.1, but might get
+    It uses DBI 1.48 and perl5.6.2, perl-5.8.7, or perl5.9.2, but might get
     it to work with DBI 0.93 or higher and perl 5.005 or higher. But then
-    again, in that case you should consider an upgrade.
+    again, in that case you should consider an upgrade. As of DBD-Unify-0.40
+    I've made DBI-1.42 prerequisite.
 
     If you plan to use DataServer 8.1 or higher database in Unicode encoding
     (UTF-8), use perl5.8.0 or up (or at least 5.7.3), which has full Unicode
@@ -203,7 +204,7 @@ ACKNOWLEDGEMENTS
 
 COPYRIGHT AND LICENSE
 
-    Copyright (C) 1999-2004 H.Merijn Brand
+    Copyright (C) 1999-2005 H.Merijn Brand
 
     This library is free software; you can redistribute it and/or modify
     it under the same terms as Perl itself. 

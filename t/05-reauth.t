@@ -1,24 +1,13 @@
-#!perl -w
+#!/usr/bin/perl
 
-print "1..1\n";
-print "ok 1\n";
-exit 0;			# NOT YET, investigate
+use strict;
+use warnings;
 
-sub ok ($$;$) {
-    my ($n, $ok, $warn) = @_;
-    ++$t;
-    die "sequence error, expected $n but actually $t"
-    if $n and $n != $t;
-    ($ok) ? print "ok $t\n"
-	  : print "# failed test $t at line ".(caller)[2]."\nnot ok $t\n";
-    if (!$ok && $warn) {
-	$warn = $DBI::errstr || "(DBI::errstr undefined)" if $warn eq "1";
-	warn "$warn\n";
-	}
-    } # ok
+use Test::More skip_all => "No tests here yet. Please investigate";
 
-use DBI;
-$| = 1;
+__END__
+
+BEGIN { use_ok ("DBI") };
 
 my $dbuser   = $ENV{ORACLE_USERID}   || "scott/tiger";
 my $dbuser_2 = $ENV{ORACLE_USERID_2} || "";

@@ -1,109 +1,83 @@
 #!/usr/bin/perl
 
+use strict;
+use warnings;
+
+use Test::More tests => 18;
+
 use DBI qw(:sql_types);
 
-$verbose =   0;
-$ntests  =   5;
-
-my $t = 0;
-sub ok ($$)
-{
-    my ($tst, $ok) = @_;
-    $t++;
-    $verbose and
-	printf STDERR "# %2d: %-20s %s\n", $t, $tst, $ok ? "OK" : "NOT OK";
-    ($ok) ? print "ok $t\n" : print "not ok $t\n";
-    } # ok
-
-unless (exists $ENV{UNIFY}  && -d $ENV{UNIFY}) {
-    warn "\$UNIFY not set";
-    print "1..0\n";
-    exit 0;
-    }
-my $UNIFY  = $ENV{UNIFY};
-
-unless (exists $ENV{DBPATH} && -d $ENV{DBPATH} && -r "$ENV{DBPATH}/file.db") {
-    warn "\$DBPATH not set";
-    print "1..0\n";
-    exit 0;
-    }
 my $dbname = "DBI:Unify:$ENV{DBPATH}";
 
-sub connect_db ($)
-{
-    # Connects to the database.
-    # If this fails everything else is in vain!
-    my ($dbname) = @_;
-
-    $verbose and
-	print "Testing: DBI->connect ('$dbname'):\n";
-
-    my $dbh = DBI->connect ($dbname, undef, "", {
+my $dbh;
+ok ($dbh = DBI->connect ($dbname, undef, "", {
 	RaiseError    => 1,
 	PrintError    => 1,
 	AutoCommit    => 0,
 	ChopBlanks    => 1,
-	uni_verbose   => $verbose,
+	uni_verbose   => 0,
 	uni_scanlevel => 7,
-	});
-    unless ($dbh) {
-        print "1..0\n";
-        warn "Cannot connect to database $dbname: $DBI::errstr\n";
-        exit 0;
-	}
-    print "1..$ntests\nok 1\n";
-    $dbh;
-    } # connect_db
+	}), "connect with attributes");
 
-my $dbh = connect_db ($dbname) or die "connect";
-$t = 1;
+unless ($dbh) {
+    BAILOUT ("Unable to connect to Unify ($DBI::errstr)\n");
+    exit 0;
+    }
 
-{   my $sts = $dbh->prepare (q;
+{   my $sts;
+    ok ($sts = $dbh->prepare (q;
 	select COLCODE
 	from   SYS.COLTYPE
 	where  COLTYPE = 'FLOAT';
-	);
-    $sts->execute;
+	), "prepare equal");
+    ok ($sts->execute, "execute equal");
     my ($colcode) = $sts->fetchrow_array;
-    ok ("equal", $colcode == 8);
-    $sts->finish;
+    ok ($colcode == 8, "fetch equal");
+    ok ($sts->finish, "finish equal");
     }
 
 #$dbh->{uni_verbose} = 999;
-{   my $sts = $dbh->prepare (q;
+{   my $sts;
+    ok ($sts = $dbh->prepare (q;
 	select COLCODE
 	from   SYS.COLTYPE
 	where  COLTYPE like 'AMOU%';
-	);
-    $sts->execute;
+	), "prepare like");
+    ok ($sts->execute, "execute like");
     my ($colcode) = $sts->fetchrow_array;
-    ok ("like", $colcode == 4);
-    $sts->finish;
+    ok ($colcode == 4, "fetch like");
+    ok ($sts->finish, "finish like");
     }
 
-{   my $sts = $dbh->prepare (q;
+{   my $sts;
+    ok ($sts = $dbh->prepare (q;
 	select COLCODE
 	from   SYS.COLTYPE
 	where  COLTYPE reglike '^DOUB.*';
-	);
-    $sts->execute;
+	), "prepare reglike");
+    ok ($sts->execute, "execute reglike");
     my ($colcode) = $sts->fetchrow_array;
-    ok ("reglike", $colcode == 15);
-    $sts->finish;
+    ok ($colcode == 15, "fetch reglike");
+    ok ($sts->finish, "finish reglike");
     }
 
-#if ("This test is known to fail") { ok ("shlike will core", 1) } else
-{   my $sts = $dbh->prepare (q;
+SKIP: {
+    my @sqlv = `SQL -version`;
+    my ($rev) = ("@sqlv" =~ m/Revision:\s+(\d[.\d]*)/);
+    $rev < 8.2 and skip "SHLIKE will dump core", 4;
+
+    my $sts;
+    ok ($sts = $dbh->prepare (q;
 	select COLCODE
 	from   SYS.COLTYPE
 	where  COLTYPE shlike 'CHAR*';
-	);
-    $sts->execute;
+	), "prepare shlike");
+    ok ($sts->execute, "execute shlike");
     my ($colcode) = $sts->fetchrow_array;
-    ok ("shlike", $colcode == 5);
-    $sts->finish;
+    ok ($colcode == 5, "fetch shlike");
+    ok ($sts->finish, "finish shlike");
     }
 
-$dbh->disconnect;
+ok ($dbh->disconnect, "disconnect");
 
-1;
+exit 0;

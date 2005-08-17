@@ -21,5 +21,6 @@ t/20-uni-basic.t
 t/21-uni-regex.t
 t/27-uni-max.t
 t/30-reconnect.t
+t/40-info.t
 t/99-done.t
 META.yml                                 Module meta-data (added by MakeMaker)

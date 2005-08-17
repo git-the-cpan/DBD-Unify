@@ -1,11 +1,11 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         DBD-Unify
-version:      0.31
+version:      0.42
 version_from: Unify.pm
 installdirs:  site
 requires:
-    DBI:                           1.13
+    DBI:                           1.42
 
 distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.17
+generated_by: ExtUtils::MakeMaker version 6.30

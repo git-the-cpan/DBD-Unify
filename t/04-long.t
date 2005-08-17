@@ -1,6 +1,8 @@
-#!perl -w
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Test::More skip_all => "DBD::Unify does not (yet) support binary/text";
 
 # Since DBD-Unify does not (yet) support binary/text, there's nothing to test
-
-print "1..1\n";
-print "ok 1\n";

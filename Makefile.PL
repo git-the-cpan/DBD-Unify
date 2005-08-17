@@ -7,7 +7,7 @@ use Cwd qw( cwd abs_path );
 
 use ExtUtils::MakeMaker;
 
-use DBI 1.13;
+use DBI 1.42;
 use DBI::DBD;
 
 print "\nConfiguring DBD::Unify ...\n\n";
@@ -23,10 +23,10 @@ my $rv = WriteMakefile (
     NAME          =>   "DBD::Unify",
     DISTNAME      =>   "DBD-Unify",
     VERSION_FROM  =>   "Unify.pm",
-    AUTHOR        =>   "H.Merijn Brand <h.m.brand\@hccnet.nl>",
+    AUTHOR        =>   "H.Merijn Brand <h.m.brand\@xs4all.nl>",
     ABSTRACT_FROM =>   "Unify.pm",
 
-    PREREQ_PM     => { DBI      => "1.13",
+    PREREQ_PM     => { DBI      => "1.42",
 		       },
 
     dist          => { COMPRESS => "gzip -9f",
@@ -101,34 +101,50 @@ sub CheckUnify
 	@ulibs = map { s/0u\.a/0ul.a/; $_ } grep m/[ASU]/, @ulibs;
 
     my ($rev) = ("@sqlv" =~ m/Revision:\s+(\d[.\d]*)/);
-    if ($^O eq "hpux" && $rev >= 8.2 && !-f "ulib/libU2000c.sl" && -w $UNIFY) {
-	print STDERR
-	    "Building for rev $rev on HP-UX would support Shared Libraries\n",
-	    " but I don't see them (yet) in your \$UNIFY.\n",
-	    "Shall I try to use Shared Objects? [Y/n] > Y\b";
-	my $answer = <STDIN>;
-	$answer =~ m/^\s*[Qq]/ and exit;
-	unless ($answer =~ m/^\s*[NnFf]/) {
-	    chdir $UNIFY or die "Cannot chdir to $UNIFY: $!\n";
-	    foreach my $a (<*.a >) {
-		$a eq "ACLMAIN.a" and next;
-		(my $sl = "lib$a") =~ s/\.a$/.sl/;
-		$sl =~ s/^liblib/lib/;
-		-f $sl and next;	# Already done;
-		mkdir "_a_SL" or die "Cannot create temp dir for conversion: $!";
-		chdir "_a_SL" or die "Cannot chdir to temp dir: $!";
-		print STDERR "  Converting $a ...\n";
-		system "ar x ../$a";
-		system "ld -b -o ../$sl *.o";
-		unlink <*.o >;
-		chdir "..";
-		rmdir "_a_SL";
+    my $try_shared = $^O eq "hpux" && $rev >= 8.2 ? 1 : 0;
+    if ($try_shared) {
+	if (-f "ulib/libU2000c.sl") {
+	    print "Build a shared lib version? [Y/n] > Y\b";
+	    my $answer = <STDIN>;
+	    $answer =~ m/^\s*[Qq]/   and exit;
+	    $answer =~ m/^\s*[NnFf]/ and $try_shared = 0;
+	    }
+	elsif (-w $UNIFY) {
+	    print
+		"Building for rev $rev on HP-UX would support Shared Libraries\n",
+		" but I don't see them (yet) in your \$UNIFY.\n",
+		"Shall I try to use Shared Objects? [Y/n] > Y\b";
+	    my $answer = <STDIN>;
+	    $answer =~ m/^\s*[Qq]/ and exit;
+	    if ($answer =~ m/^\s*[NnFf]/) {
+		$try_shared = 0;
 		}
-	    chdir $cwd;
+	    else {
+		chdir $UNIFY or die "Cannot chdir to $UNIFY: $!\n";
+		foreach my $a (<*.a >) {
+		    $a eq "ACLMAIN.a" and next;
+		    (my $sl = "lib$a") =~ s/\.a$/.sl/;
+		    $sl =~ s/^liblib/lib/;
+		    -f $sl and next;	# Already done;
+		    mkdir "_a_SL" or die "Cannot create temp dir for conversion: $!";
+		    chdir "_a_SL" or die "Cannot chdir to temp dir: $!";
+		    print STDERR "  Converting $a ...\n";
+		    system "ar x ../$a";
+		    system "ld -b +s -o ../$sl *.o";
+		    unlink <*.o >;
+		    chdir "..";
+		    rmdir "_a_SL";
+		    }
+		chdir $cwd;
+		}
+	    }
+	else {
+	    $try_shared = 0;
 	    }
 	}
 
-    if (-f "ulib/libU2000c.sl") {
+    -f "ulib/libU2000c.sl" or $try_shared = 0;
+    if ($try_shared) {
 	s/\.a$// for @ulibs;
 	s/^lib// for @ulibs;
 	$ULIBS = join " -l" => "-L$UNIFY", @ulibs;
@@ -149,7 +165,7 @@ sub CheckUnify
 	} # Check
     Check ("bin/SQL");
     Check ("bin/EPP");
-    if (-f "ulib/libU2000c.sl") {
+    if ($try_shared) {
 	map { Check ("lib/lib${_}.sl") } @ulibs;
 	}
     else {

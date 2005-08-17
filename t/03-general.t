@@ -1,67 +1,61 @@
-#!perl -w
+#!/usr/bin/perl
 
-BEGIN { $tests = 12 }
+use strict;
+use warnings;
 
-sub ok ($$;$) {
-    my ($n, $ok, $warn) = @_;
-    ++$t;
-    die "sequence error, expected $n but actually $t"
-    if $n and $n != $t;
-    ($ok) ? print "ok $t\n"
-	  : print "# failed test $t at line ".(caller)[2]."\nnot ok $t\n";
-    if (!$ok && $warn) {
-	$warn = $DBI::errstr || "(DBI::errstr undefined)" if $warn eq "1";
-	warn "$warn\n";
-	}
-    } # ok
+use Test::More tests => 18;
 
-use DBI;
-$| = 1;
+BEGIN { use_ok ("DBI") }
 
-my $schema = "DBUTIL";
-my $dbh    = DBI->connect ("dbi:Unify:", "", $schema);
+my ($schema, $dbh) = ("DBUTIL");
+ok ($dbh = DBI->connect ("dbi:Unify:", "", $schema), "Connect");
 
 unless ($dbh) {
-    warn "Unable to connect to Unify ($DBI::errstr)\nTests skiped.\n";
-    print "1..0\n";
+    BAILOUT ("Unable to connect to Unify ($DBI::errstr)\n");
     exit 0;
     }
 
-print "1..$tests\n";
+my $sth;
 
 # also test preparse doesn't get confused by ? :1
-my $sth = $dbh->prepare (q{
+ok ($sth = $dbh->prepare (q{
     select * from DIRS -- ? :1
-    });
-ok (0, $sth->execute);
-ok (0, $sth->{NUM_OF_FIELDS});
-eval { my $typo = $sth->{NUM_OFFIELDS_typo} };
-ok (0, $@ =~ /attribute/);
-ok (0, $sth->{Active});
-ok (0, $sth->finish);
-ok (0, !$sth->{Active});
+    }), "prepare 1");
+ok ($sth->execute,		"execute");
+ok ($sth->{NUM_OF_FIELDS}, "NUM_OF_FIELDS");
+eval {
+    local $SIG{__WARN__} = sub { die @_ }; # since DBI 1.43
+    my $x = $sth->{NUM_OFFIELDS_typo};
+    };
+like ($@, qr/attribute/,	"attr typo");
+ok ($sth->{Active},		"Active");
+ok ($sth->finish,		"finish");
+ok (!$sth->{Active},		"not Active");
 undef $sth;		# Force destroy
 
-$sth = $dbh->prepare ("select * from DIRS");
-ok (0, $sth->execute);
-ok (0, $sth->{Active});
+ok ($sth = $dbh->prepare ("select * from DIRS"), "prepare 2");
+ok ($sth->execute,		"execute 2");
+ok ($sth->{Active},		"Active 2");
 1 while ($sth->fetch);	# fetch through to end
-ok (0, !$sth->{Active});
+ok (!$sth->{Active},		"auto finish");
 undef $sth;
 
+my $warn;
 eval {
-    local $dbh->{PrintError} = 0;
+    local $SIG{__WARN__} = sub { $warn = $_[0] };
     local $dbh->{RaiseError} = 1;
     $dbh->do ("some invalid sql statement");
     };
-ok (0, $@ =~ /DBD::Unify::db do failed:/, "eval error: ``$@'' expected 'do failed:'");
+like ($@,    qr/DBD::Unify::db do failed:/, "expected 'do failed:' from RaiseError");
+like ($warn, qr/DBD::Unify::db do failed:/, "expected 'do failed:' from PrintError");
+ok ($DBI::err,			"DBI::err is set");
 $dbh->{RaiseError} = 0;
 
 # ---
 
-ok (0,  $dbh->ping);
+ok ( $dbh->ping,		"ping");
 $dbh->disconnect;
 $dbh->{PrintError} = 0;
-ok (0, !$dbh->ping);
+ok (!$dbh->ping,		"!ping");
 
 exit 0;

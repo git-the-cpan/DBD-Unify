@@ -1,76 +1,77 @@
-#!perl -w
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Test::More;
 
 # Test if all of the documented DBI API is implemented and working OK
 
+my ($max_sth, $tests);
+
 BEGIN {
-    if (exists $ENV{DBD_UNIFY_SKIP_27}) {
-	print "1..0\n";
-	exit 0;
-	}
     $max_sth = 473;	# Arbitrary limit test count
-    $tests   =   4 + $max_sth;
-    }
+    $tests   = 9 + 5 * ($max_sth + 1); # All tests run from 0 to $max_sth
 
-$ENV{MAXSCAN}       = $max_sth + 1;
-$ENV{MXOPENCURSORS} = 2 * $max_sth;
+    $ENV{MAXSCAN}       = $max_sth + 1;
+    $ENV{MXOPENCURSORS} = 2 * $max_sth;
 
-sub ok ($$;$) {
-    my ($n, $ok, $warn) = @_;
-    ++$t;
-    die "sequence error, expected $n but actually $t"
-    if $n and $n != $t;
-    ($ok) ? print "ok $t\n"
-	  : print "# failed test $t at line ".(caller)[2]."\nnot ok $t\n";
-    if (!$ok && $warn) {
-	$warn = $DBI::errstr || "(DBI::errstr undefined)" if $warn eq "1";
-	warn "$warn\n";
+    if (exists $ENV{DBD_UNIFY_SKIP_27}) {
+	plan skip_all => "Skip max tests on user request";
 	}
-    } # ok
+    else {
+	plan tests => $tests;
+	print STDERR "To disable future max tests: setenv DBD_UNIFY_SKIP_27 1\n";
+	}
 
-use DBI;
-$| = 1;
-
-print "1..$tests\n";
+    use_ok ("DBI");
+    }
 
 # =============================================================================
 
-my $dbh = DBI->connect ("dbi:Unify:");
+my $dbh;
+
+ok ($dbh = DBI->connect ("dbi:Unify:"), "connect");
+
 unless ($dbh) {
-    warn "Unable to connect to Unify ($DBI::errstr)\nTests skiped.\n";
-    print "1..0\n";
+    BAILOUT ("Unable to connect to Unify ($DBI::errstr)\n");
     exit 0;
     }
-ok (0, $dbh);
 
-# =============================================================================
+my $sts;
 
-my $sts = $dbh->do (join " " => q;
+# =========================================================================
+
+ok ($sts = $dbh->do (join " " => q;
     create table xx (
-        xs numeric       (4) not null,
-        xl numeric       (9)
-	););
-ok (0, $sts);
-$dbh->commit;
+	xs numeric       (4) not null,
+	xl numeric       (9)
+	);), "do");
+ok ($dbh->commit, "commit");
 
 # Now check hitting realloc sth_id with an arbitrary number
-my @sti = map { $dbh->prepare ("insert into xx (xs, xl) values ($_, ?)") }
-    (0 .. $max_sth);
-map { $_->execute (1234) } @sti;
-my @sts = map { $dbh->prepare ("select xs, xl from xx where xs = ?") }
-    (0 .. $max_sth);
+my @sti = map {
+    my $sth;
+    ok ($sth = $dbh->prepare ("insert into xx (xs, xl) values ($_, ?)"), "ins prepare $_");
+    $sth } (0 .. $max_sth);
+ok ($sti[$_]->execute (1234), "ins execute $_") for 0 .. $#sti;
+my @sts = map {
+    my $sth;
+    ok ($sth = $dbh->prepare ("select xs, xl from xx where xs = ?"), "sel prepare $_");
+    $sth } (0 .. $max_sth);
 foreach my $i (0 .. $max_sth) {
-    $sts[$i]->execute ($i);
+    ok ($sts[$i]->execute ($i), "execute $i");
     my ($xs, $xl) = $sts[$i]->fetchrow_array;
-    ok (0, $xs == $i && $xl == 1234);
+    ok ($xs == $i && $xl == 1234, "fetch $i");
     }
 map { $_->finish () } @sts, @sti;
-$dbh->commit;
+ok ($dbh->commit, "commit");
 
 # =============================================================================
-$dbh->do ("drop table xx");
-$dbh->commit;
+ok ($dbh->do ("drop table xx"), "drop");
+ok ($dbh->commit, "commit");
 
-$dbh->disconnect;
-ok (0, !$dbh->ping);
+ok ($dbh->disconnect, "disconnect");
+ok (!$dbh->ping, "!ping");
 
 exit 0;
