@@ -83,7 +83,7 @@ use DBI 1.42;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.42";
+$VERSION = "0.50";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -478,6 +478,82 @@ are closed and the DBI/DBD will warn if an attempt is made to fetch
 from them.
 
 A future version of DBD::Unify might re-prepare the statement.
+
+=back
+
+=head2 Stuff implemented in perl
+
+=over 2
+
+=item driver
+
+Just here for DBI. No use in telling the end-user what to do with it :)
+
+=item connect
+
+=item data_sources
+
+=item do
+
+=item prepare
+
+=item table_info ($;$$$$)
+
+=item foreign_key_info ($$$$$$;$)
+
+=item link_info ($;$$$$)
+
+=item ping
+
+=back
+
+=head2 Stuff implemented in C (XS)
+
+=over 2
+
+=item int  dbd_bind_ph (SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
+
+=item SV  *dbd_db_FETCH_attrib (SV *dbh, imp_dbh_t *imp_dbh, SV *keysv)
+
+=item int  dbd_db_STORE_attrib (SV *dbh, imp_dbh_t *imp_dbh, SV *keysv, SV *valuesv)
+
+=item int  dbd_db_commit (SV *dbh, imp_dbh_t *imp_dbh)
+
+=item void dbd_db_destroy (SV *dbh, imp_dbh_t *imp_dbh)
+
+=item int  dbd_db_disconnect (SV *dbh, imp_dbh_t *imp_dbh)
+
+=item int  dbd_db_do (SV *dbh, char *statement)
+
+=item int  dbd_db_login (SV *dbh, imp_dbh_t *imp_dbh,
+
+=item int  dbd_db_rollback (SV *dbh, imp_dbh_t *imp_dbh)
+
+=item int  dbd_discon_all (SV *drh, imp_drh_t *imp_drh)
+
+=item int  dbd_fld_describe (SV *dbh, imp_sth_t *imp_sth, int num_fields)
+
+=item void dbd_init (dbistate_t *dbistate)
+
+=item int  dbd_prm_describe (SV *dbh, imp_sth_t *imp_sth, int num_params)
+
+=item SV  *dbd_st_FETCH_attrib (SV *sth, imp_sth_t *imp_sth, SV *keysv)
+
+=item int  dbd_st_STORE_attrib (SV *sth, imp_sth_t *imp_sth, SV *keysv, SV *valuesv)
+
+=item int  dbd_st_blob_read (SV *sth, imp_sth_t *imp_sth, int field,
+
+=item void dbd_st_destroy (SV *sth, imp_sth_t *imp_sth)
+
+=item int  dbd_st_execute (SV *sth, imp_sth_t *imp_sth)
+
+=item AV  *dbd_st_fetch (SV *sth, imp_sth_t *imp_sth)
+
+=item int  dbd_st_finish (SV *sth, imp_sth_t *imp_sth)
+
+=item int  dbd_st_prepare (SV *sth, imp_sth_t *imp_sth, char *statement, SV *attribs)
+
+=item int  dbd_st_rows (SV *sth, imp_sth_t *imp_sth)
 
 =back
 

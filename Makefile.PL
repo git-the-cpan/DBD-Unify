@@ -15,7 +15,7 @@ print "\nConfiguring DBD::Unify ...\n\n";
 $^O =~ m/^(?: VMS | MsWin32 | cygwin )$/x and
     die "OS type $^O is not (yet) supported";
 
-use vars qw($UNIFY $UNITOP $ULIBS);
+use vars qw($UNIFY $UNITOP $ULIBS $ULDOPTS);
 
 CheckUnify ();
 
@@ -51,7 +51,7 @@ my $rv = WriteMakefile (
 					    { hpux	=> "",
 					      aix	=> "-lm",
 					      dec_osf	=> "-lxnet",
-					      }->{$^O},
+					      }->{$^O} . $ULDOPTS,
 		       },
     macro         => { EPP    => "$UNITOP/bin/EPP",
 		       EPPOPT => "",
@@ -60,7 +60,7 @@ my $rv = WriteMakefile (
 		       },
     );
 
-if ($rv && -f "ulib/libU2000c.sl") {
+if ($rv && <ulib/*.s[lo] >) {
     open my $mf, "<Makefile" or die "Cannot modify Makefile: $!\n";
     my @MF = <$mf>;
     close $mf;
@@ -88,22 +88,25 @@ sub CheckUnify
     unlink "ulib";
     symlink $UNIFY, "./ulib";
     # Checked for A/SQL DS 6.3 AB and beyond
-    my @ulibs = qw(
+    my @ulibs = grep { -f "ulib/$_" } qw(
 	ACCELL.a
 	S2000e.a S2000c.a
+	libuse.a
 	U2000c.a U2000u.a U2000k.a
 	U2000c.a
 	S2000u.a S2000c.a U2000r.a
 	libnwrpc.a libnwstcp.a
+	libudsu.a libusu.a
 	U2000c.a U2000u.a);
     print "Do you *need* networked databases? [y/N] > N\b";
     scalar <STDIN> =~ m/^\s*[yYjJ]/ or
-	@ulibs = map { s/0u\.a/0ul.a/; $_ } grep m/[ASU]/, @ulibs;
+	@ulibs = map { s/([0s]u)\.a/$1l.a/; $_ } @ulibs;
+    $ULDOPTS = -f "ulib/libgcc.a" ? " -lgcc" : "";
 
     my ($rev) = ("@sqlv" =~ m/Revision:\s+(\d[.\d]*)/);
     my $try_shared = $^O eq "hpux" && $rev >= 8.2 ? 1 : 0;
     if ($try_shared) {
-	if (-f "ulib/libU2000c.sl") {
+	if (<ulib/*.sl >) {
 	    print "Build a shared lib version? [Y/n] > Y\b";
 	    my $answer = <STDIN>;
 	    $answer =~ m/^\s*[Qq]/   and exit;
@@ -143,7 +146,7 @@ sub CheckUnify
 	    }
 	}
 
-    -f "ulib/libU2000c.sl" or $try_shared = 0;
+    <ulib/*.s[lo] > or $try_shared = 0;
     if ($try_shared) {
 	s/\.a$// for @ulibs;
 	s/^lib// for @ulibs;

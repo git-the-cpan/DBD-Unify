@@ -12,8 +12,9 @@ See the ChangeLog file for a complete history
 REQUIREMENTS
 
     It has been ported and tested on DataServer 6.3AB, 6.3BE, 8.1CC, 8.1CE,
-    8.1DAB, 8.2AC, 8.2AD, 8.2B, and 8.3F, but this does not mean it might
-    not work on U2000 databases or other DataServer releases.
+    8.1DAB, 8.2AC, 8.2AD, 8.2B, 8.3E/64, 8.3F/64, and 8.3KAB/64, but this
+    does not mean it might not work on U2000 databases or other DataServer
+    releases.
 
     It uses DBI 1.48 and perl5.6.2, perl-5.8.7, or perl5.9.2, but might get
     it to work with DBI 0.93 or higher and perl 5.005 or higher. But then
@@ -200,7 +201,8 @@ TO DO:
 ACKNOWLEDGEMENTS
 
     Thanks to Tom Poage <poage@fireball.ucdmc.ucdavis.edu> for keeping
-    the speed in the development and help in adding the missing features.
+    the speed in the development and help in adding the missing features
+    in the earlier stages of this DBD interface.
 
 COPYRIGHT AND LICENSE
 
