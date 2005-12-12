@@ -98,9 +98,17 @@ sub CheckUnify
 	libnwrpc.a libnwstcp.a
 	libudsu.a libusu.a
 	U2000c.a U2000u.a);
-    print "Do you *need* networked databases? [y/N] > N\b";
-    scalar <STDIN> =~ m/^\s*[yYjJ]/ or
+    print "Link (L)ocal-only, (R)emote-only, or (B)oth? [L/r/b] > L\b";
+    my $localremote = scalar <STDIN>;
+    if    ($localremote =~ m/^\s*[Rr]/) {
+	@ulibs = map { s/([0s]u)\.a/$1r.a/; $_ } @ulibs;
+	}
+    elsif ($localremote =~ m/^\s*[Bb]/) {
+	# No change
+	}
+    else { # Local-only is (fastest) default
 	@ulibs = map { s/([0s]u)\.a/$1l.a/; $_ } @ulibs;
+	}
     $ULDOPTS = -f "ulib/libgcc.a" ? " -lgcc" : "";
 
     my ($rev) = ("@sqlv" =~ m/Revision:\s+(\d[.\d]*)/);

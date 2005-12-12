@@ -83,7 +83,7 @@ use DBI 1.42;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.50";
+$VERSION = "0.51";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -321,7 +321,7 @@ sub link_info ($;$$$$)
 sub ping
 {
     my $dbh = shift;
-    $dbh->prepare ("select * from SYS.ACCESSIBLE_TABLES") or return 0;
+    $dbh->prepare ("select ORD from SYS.ORD") or return 0;
     return 1;
     } # ping
 
