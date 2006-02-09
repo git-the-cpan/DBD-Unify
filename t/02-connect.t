@@ -17,12 +17,12 @@ unless ($dbh) {
     }
 
 my $sth = $dbh->prepare ("select * from DIRS");
-ok ($sth->execute,		"execute");
-ok ($sth->{Active},		"sth attr Active");
+ok ($sth->execute,	"execute");
+ok ($sth->{Active},	"sth attr Active");
 $sth->finish;
 ok (!$sth->{Active},	"sth attr not Active");
 $dbh->disconnect;	# Should auto-destroy $sth;
-ok (!$dbh->ping,		"disconnected");
+ok (!$dbh->ping,	"disconnected");
 
 {   local $SIG{__WARN__} = sub {};
     delete $ENV{UNIFY};

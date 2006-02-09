@@ -1,7 +1,13 @@
-*** Release 0.51 - Mon 12 Dec 2005 <h.m.brand@xs4all.nl>
+*** Release 0.60 - Thu 09 Feb 2006 <h.m.brand@xs4all.nl>
+
+    - TEXT/BINARY support
+
+*** Release 0.51 - Mon 16 Jan 2006 <h.m.brand@xs4all.nl>
 
     - Extended link options from Makefile.PL (Ron Kuris)
     - Faster ping (Ron Kuris)
+    - Dynamic extension for shared libs from %Config
+    - Changed ok ($a eq $b, "name") tests to is ($a, $b, "name")
 
 *** Release 0.50 - Fri 30 Sep 2005 <h.m.brand@xs4all.nl>
 

@@ -26,23 +26,23 @@ unless ($dbh) {
 my $sth;
 
 ok ( $sth = $dbh->prepare ("select * from DIRS"), "prepare");
-ok ( $dbh->{Kids} == 1, "Kids");
-ok ( $sth->{Warn}, "Warn");
-ok (!$sth->{Active}, "Active");
-ok ( $dbh->{ActiveKids} == 0, "ActiveKids");
-ok ( $sth->execute, "execute");
-ok ( $sth->{Active}, "Active 2");
-ok ( $dbh->{ActiveKids} == 1, "ActiveKids 2");
-ok ( $sth->finish, "finish");
-ok (!$sth->{Active}, "Active 3");
-ok ( $sth->{Kids} == 0, "Kids 3");
+is ( $dbh->{Kids},	 1,	"Kids");
+ok ( $sth->{Warn},		"Warn");
+ok (!$sth->{Active},		"Active");
+is ( $dbh->{ActiveKids}, 0,	"ActiveKids");
+ok ( $sth->execute,		"execute");
+ok ( $sth->{Active},		"Active 2");
+is ( $dbh->{ActiveKids}, 1,	"ActiveKids 2");
+ok ( $sth->finish,		"finish");
+ok (!$sth->{Active},		"Active 3");
+is ( $sth->{Kids},	 0,	"Kids 3");
     # Docs do /not/ define what Kids should return
     # for a statement handle (same for ActiveKids,
     # and CachedKids)
-ok (!$sth->{CompatMode}, "CompatMode");
+ok (!$sth->{CompatMode},	"CompatMode");
 
 # =============================================================================
 
-ok ($dbh->disconnect, "disconnect");
+ok ( $dbh->disconnect,		"disconnect");
 
 exit 0;

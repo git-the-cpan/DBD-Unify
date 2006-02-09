@@ -22,7 +22,7 @@ ok ($sth = $dbh->prepare (q{
     select * from DIRS -- ? :1
     }), "prepare 1");
 ok ($sth->execute,		"execute");
-ok ($sth->{NUM_OF_FIELDS}, "NUM_OF_FIELDS");
+ok ($sth->{NUM_OF_FIELDS},	"NUM_OF_FIELDS");
 eval {
     local $SIG{__WARN__} = sub { die @_ }; # since DBI 1.43
     my $x = $sth->{NUM_OFFIELDS_typo};

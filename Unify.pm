@@ -1,4 +1,4 @@
-#   Copyright (c) 1999-2004 H.Merijn Brand
+#   Copyright (c) 1999-2006 H.Merijn Brand
 #
 #   You may distribute under the terms of either the GNU General Public
 #   License or the Artistic License, as specified in the Perl README file.
@@ -83,7 +83,7 @@ use DBI 1.42;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.51";
+$VERSION = "0.60";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -371,8 +371,6 @@ Chars are returned as strings (perl's PVs).
 Chars, Dates, Huge Dates and Times are returned as strings (perl's PVs).
 Unify represents midnight with 00:00, not 24:00.
 
-Varchars and others are returned as undef (for the moment).
-
 =item *
 
 connect
@@ -578,7 +576,7 @@ H.Merijn Brand, <h.m.brand@xs4all.nl> developed the DBD::Unify extension.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 1999-2005 H.Merijn Brand
+Copyright (C) 1999-2006 H.Merijn Brand
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

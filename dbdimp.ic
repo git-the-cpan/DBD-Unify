@@ -1,4 +1,4 @@
-/* Copyright (c) 1999-2005  H.Merijn Brand <h.m.brand@xs4all.nl>
+/* Copyright (c) 1999-2006  H.Merijn Brand <h.m.brand@xs4all.nl>
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Artistic License, as specified in the Perl README file.
@@ -61,6 +61,7 @@ int	n_sql_st;
 
 int	fix, fln, fic, ftp, fpr, fsc, fnl;
 char	fnm[48], fdC[260];
+utxtptr	fdB;
 short	fdS;
 int	fdL;
 float	fdF;
@@ -805,10 +806,11 @@ int dbd_bind_ph (SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
     else {
 	auto	STRLEN	l;
 	switch (ftp) {
+	    case SQLBYTE:
 	    case SQLCHAR: {
 		auto	char	*s;
 
-		dbg (3, "CHAR%6d: ", fln);
+		dbg (3, "%s%6d: ", ftp == SQLBYTE ? "BYTE" : "CHAR", fln);
 		s = SvPV (value, l);
 		if (l > fln)
 		    croak ("DBD::Unify::st_bind: index %d: "
@@ -972,11 +974,24 @@ int dbd_bind_ph (SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
 		break;
 
 	    case SQLTEXT:
-	    case SQLBINARY:
-	    case SQLBYTE:
-		dbg (3, "TYPE %2d: NYI", ftp);
-		NYI ("st_bind[text/binary/byte]");
+	    case SQLBINARY: {
+		auto	char	*s;
+
+		dbg (3, "TEXT: ");
+		s = SvPV (value, l);
+		dbg (3, "(%d) '%s'", l, s);
+		fdB.curlen  = l;
+		fdB.dataptr = s;
+		EXEC SQL
+		    SET SQL DESCRIPTOR :i_sql_nm
+		    VALUE :fix
+			DATA      = :fdB,
+			INDICATOR = 0;
+		dbg (3, "    After set,      sqlcode = %d\n", SQLCODE);
+		unless (sqlError (dbh))
+		    return (0);
 		break;
+		}
 
 	    case SQLNUMERIC:
 	    case SQLDECIMAL:
@@ -1165,8 +1180,9 @@ AV *dbd_st_fetch (SV *sth, imp_sth_t *imp_sth)
 	    }
 
 	switch (ftp) {
+	    case SQLBYTE:
 	    case SQLCHAR:
-		dbg (3, "CHAR%6d: ", fln);
+		dbg (3, "%s%6d: ", ftp == SQLBYTE ? "BYTE" : "CHAR", fln);
 		EXEC SQL
 		    GET DESCRIPTOR :o_sql_nm
 		    VALUE :fix
@@ -1305,11 +1321,36 @@ AV *dbd_st_fetch (SV *sth, imp_sth_t *imp_sth)
 		break;
 
 	    case SQLTEXT:
-	    case SQLBINARY:
-	    case SQLBYTE:
-		dbg (3, "TYPE %2d: NYI", ftp);
-		(void)SvOK_off (sv);
+	    case SQLBINARY: {
+		auto	char	*s;
+
+		dbg (3, "TEXT %2d: ", ftp);
+		EXEC SQL
+		    GET DESCRIPTOR :o_sql_nm
+		    VALUE :fix
+			  :fdB = DATA;
+		dbg (5, "\r\n    After get,      sqlcode = %d\n", SQLCODE);
+		unless (sqlError (dbh))
+		    return (Nullav);
+		i = fdB.curlen;
+		s = fdB.dataptr;
+		if (i && s) {
+#ifdef CHOP_BLANKS_TEXT
+		    if (DBIc_has (imp_sth, DBIcf_ChopBlanks)) {
+			while (i && (!s[i - 1] || s[i - 1] == ' '))
+			    i--;
+			}
+		    s[i] = (char)0;
+#endif
+		    }
+		else {
+		    s = "";
+		    i = 0;
+		    }
+		sv_setpvn (sv, s, i);
+		dbg (3, "(%d) '%s'", i, SvPVX (sv));
 		break;
+		}
 
 	    case SQLNUMERIC:
 	    case SQLDECIMAL:

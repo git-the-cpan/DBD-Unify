@@ -2,7 +2,7 @@ DBD::Unify --  a Unify interface for Perl 5 using DBI.
 
 This is the Database Driver for the Unify family of database products.
 
-   Copyright (c) 1999-2005  H.Merijn Brand <h.m.brand@xs4all.nl>
+   Copyright (c) 1999-2006  H.Merijn Brand <h.m.brand@xs4all.nl>
 
    You may distribute under the terms of either the GNU General Public
    License or the Artistic License, as specified in the Perl README file.
@@ -16,14 +16,14 @@ REQUIREMENTS
     does not mean it might not work on U2000 databases or other DataServer
     releases.
 
-    It uses DBI 1.48 and perl5.6.2, perl-5.8.7, or perl5.9.2, but might get
+    It uses DBI 1.51 and perl5.6.2, perl-5.8.7, or perl5.9.2, but might get
     it to work with DBI 0.93 or higher and perl 5.005 or higher. But then
     again, in that case you should consider an upgrade. As of DBD-Unify-0.40
     I've made DBI-1.42 prerequisite.
 
     If you plan to use DataServer 8.1 or higher database in Unicode encoding
     (UTF-8), use perl5.8.0 or up (or at least 5.7.3), which has full Unicode
-    3.2 support.
+    3.2 support. Perl 5.8.7 supports Unicode 4.0.1.
 
     One user has reported success with perl 5.005_03 on SunOS 5.7 with
     gcc-2.7.2.2, DBI-1.30, DBD-Unify-0.24 with DataServer-7.2.
@@ -118,19 +118,13 @@ RESTRICTIONS:
     works, but there are some issues left to iron out in the user
     interface. We're woking on it. Suggestions welcome.
 
-    TEXT and BINARY fields are not (yet) supported, though it is easy to
-    change (code is supplied, but returns undef). Since we (me and my
-    co-workers) do not use these types with our databases, it's up to you
-    again to supply patches. Be sure to read what the DBI thinks about
-    BLOB's before diving into this snake-pit.
+    TEXT and BINARY fields are supported as of version 0.60, but probably
+    not fully tested. Feedback and patches welcome.
 
     Other known restrictions:
 
     # Incomplete or out-of-date documentation, though I keep trying to
       keep in pace with what I change
-
-    # Missing support for datatypes TEXT and BINARY in fetch and
-      positional parameters (it's up to you to supply patches)
 
     # Some database attributes not (yet) implemented. (AutoCommit et all)
 
@@ -201,12 +195,12 @@ TO DO:
 ACKNOWLEDGEMENTS
 
     Thanks to Tom Poage <poage@fireball.ucdmc.ucdavis.edu> for keeping
-    the speed in the development and help in adding the missing features
-    in the earlier stages of this DBD interface.
+    the speed in the early development and help in adding the missing
+    features in the earlier stages of this DBD interface.
 
 COPYRIGHT AND LICENSE
 
-    Copyright (C) 1999-2005 H.Merijn Brand
+    Copyright (C) 1999-2006 H.Merijn Brand
 
     This library is free software; you can redistribute it and/or modify
     it under the same terms as Perl itself. 

@@ -87,12 +87,12 @@ ok (1, "-- Check the internals");
 	);
     foreach my $attr (qw(NAME uni_types TYPE PRECISION SCALE)) {
 	#printf STDERR "\n%-20s %s\n", $attr, "@{$sth->{$attr}}";
-	ok ("@{$sth->{$attr}}" eq $attr{$attr}, "attr $attr");
+	is ("@{$sth->{$attr}}", $attr{$attr}, "attr $attr");
 	}
     }
 ok ($sth->execute, "execute");
 while (my ($xs, $xl, $xc, $xf, $xr, $xa, $xh, $xt, $xd, $xe) = $sth->fetchrow_array ()) {
-    ok ($result_ok{$xs} eq "$xs, $xl, '$xc', $xf, $xr, $xa, $xh, $xt, $xd, $xe",
+    is ($result_ok{$xs}, "$xs, $xl, '$xc', $xf, $xr, $xa, $xh, $xt, $xd, $xe",
 	"fetchrow_array $xs");
     }
 ok ($sth->finish, "finish");
@@ -101,12 +101,12 @@ ok ($sth = $dbh->prepare ("select xl, xc from xx where xs = 8"), "sel prepare");
 ok ($sth->execute, "execute");
 my $ref;
 ok ($ref = $sth->fetchrow_arrayref, "fetchrow_arrayref");
-ok ("@$ref" eq "1008, 8", "fr_ar values");
+is ("@$ref", "1008, 8", "fr_ar values");
 ok ($sth->finish, "finish");
 ok (1, "-- test the reexec");
 ok ($sth->execute, "execute");
 ok ($ref = $sth->fetchrow_arrayref);
-ok ("@$ref" eq "1008, 8", "fr_ar values 2nd");
+is ("@$ref", "1008, 8", "fr_ar values 2nd");
 ok ($sth->finish, "finish");
 
 ok ($sth = $dbh->prepare ("select xl from xx where xs = 9"), "sel prepare");
@@ -136,14 +136,14 @@ ok ($sth = $dbh->prepare ("select xs from xx where xs = ?"), "sel prepare");
 foreach my $xs (3 .. 5) {
     ok ($sth->execute ($xs), "execute $xs");
     my ($xc) = $sth->fetchrow_array;
-    ok ($xs == $xc, "fetch positional $xs");
+    is ($xs, $xc, "fetch positional $xs");
     }
 ok (1, "-- Check the bind_columns");
 {   my $xs = 0;
     ok ($sth->bind_columns (\$xs), "bind \$xs");
     ok ($sth->execute (3), "execute 3");
     ok ($sth->fetchrow_arrayref, "fetchrow_arrayref");
-    ok ($xs == 3, "fetched");
+    is ($xs, 3, "fetched");
     }
 ok ($sth->finish, "finish");
 
@@ -160,7 +160,7 @@ ok ($dbh->commit, "commit");
 ok (1, "-- UPDATE THE TABLE, MULTIPLE RECORDS, and COUNT");
 ok ($sth = $dbh->prepare ("update xx set xa = xa + .05 where xs = 5 or xs = 6"), "upd prepare");
 ok ($sth->execute, "execute");
-ok ($sth->rows == 2, "rows method");
+is ($sth->rows, 2, "rows method");
 ok ($sth->finish, "finish");
 ok ($dbh->rollback, "rollback");
 
@@ -211,7 +211,8 @@ my @rec = (
 ok ($sth = $dbh->prepare ("select * from xx order by xs"), "sel prepare final state");
 ok ($sth->execute, "execute");
 while (my @f = $sth->fetchrow_array ()) {
-    ok (("@f" eq shift @rec), "final $f[0]");
+    my $exp = shift @rec;
+    is ("@f", $exp, "final $f[0]");
     }
 ok ($sth->finish, "finish");
 

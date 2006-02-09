@@ -30,10 +30,10 @@ unless ($dbh) {
 	from   SYS.COLTYPE
 	where  COLTYPE = 'FLOAT';
 	), "prepare equal");
-    ok ($sts->execute, "execute equal");
+    ok ($sts->execute,	"execute equal");
     my ($colcode) = $sts->fetchrow_array;
-    ok ($colcode == 8, "fetch equal");
-    ok ($sts->finish, "finish equal");
+    is ($colcode, 8,	"fetch equal");
+    ok ($sts->finish,	"finish equal");
     }
 
 #$dbh->{uni_verbose} = 999;
@@ -43,10 +43,10 @@ unless ($dbh) {
 	from   SYS.COLTYPE
 	where  COLTYPE like 'AMOU%';
 	), "prepare like");
-    ok ($sts->execute, "execute like");
+    ok ($sts->execute,	"execute like");
     my ($colcode) = $sts->fetchrow_array;
-    ok ($colcode == 4, "fetch like");
-    ok ($sts->finish, "finish like");
+    is ($colcode, 4,	"fetch like");
+    ok ($sts->finish,	"finish like");
     }
 
 {   my $sts;
@@ -55,10 +55,10 @@ unless ($dbh) {
 	from   SYS.COLTYPE
 	where  COLTYPE reglike '^DOUB.*';
 	), "prepare reglike");
-    ok ($sts->execute, "execute reglike");
+    ok ($sts->execute,	"execute reglike");
     my ($colcode) = $sts->fetchrow_array;
-    ok ($colcode == 15, "fetch reglike");
-    ok ($sts->finish, "finish reglike");
+    is ($colcode, 15,	"fetch reglike");
+    ok ($sts->finish,	"finish reglike");
     }
 
 SKIP: {
@@ -72,12 +72,12 @@ SKIP: {
 	from   SYS.COLTYPE
 	where  COLTYPE shlike 'CHAR*';
 	), "prepare shlike");
-    ok ($sts->execute, "execute shlike");
+    ok ($sts->execute,	"execute shlike");
     my ($colcode) = $sts->fetchrow_array;
-    ok ($colcode == 5, "fetch shlike");
-    ok ($sts->finish, "finish shlike");
+    is ($colcode, 5,	"fetch shlike");
+    ok ($sts->finish,	"finish shlike");
     }
 
-ok ($dbh->disconnect, "disconnect");
+ok ($dbh->disconnect,	"disconnect");
 
 exit 0;

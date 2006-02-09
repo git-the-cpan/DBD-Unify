@@ -11,12 +11,12 @@ BEGIN { use_ok ("DBI") }
 
 my ($switch, $drh);
 ok ($switch = DBI->internal,	"DBI->internal");
-ok (ref $switch eq "DBI::dr",	"DBI::dr ref 1");
+is (ref $switch, "DBI::dr",	"DBI::dr ref 1");
 
 eval {
     # This is a special case. install_driver should not normally be used.
     ok ($drh = DBI->install_driver ("Unify"),	"install_driver");
-    ok (ref $drh eq "DBI::dr",	"DBI::dr ref 2");
+    is (ref $drh, "DBI::dr",	"DBI::dr ref 2");
     };
 if ($@) {
     $@ =~ s/\n\n+/\n/g;

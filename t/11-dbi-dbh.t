@@ -23,12 +23,12 @@ unless ($dbh) {
 
 # Attributes common to all handles
 
-ok ( $dbh->{Warn}, "Warn");
-ok ( $dbh->{Active}, "Active");
-ok ( $dbh->{Kids} == 0, "Kids");
+ok ( $dbh->{Warn},		"Warn");
+ok ( $dbh->{Active},		"Active");
+is ( $dbh->{Kids}, 0,		"Kids");
 ok (!$dbh->{CachedKids} || 0 == keys %{$dbh->{CachedKids}}, "CachedKids");
-ok ( $dbh->{ActiveKids} == 0, "ActiveKids");
-ok (!$dbh->{CompatMode}, "CompatMode");
+is ( $dbh->{ActiveKids}, 0,	"ActiveKids");
+ok (!$dbh->{CompatMode},	"CompatMode");
 
 # =============================================================================
 
@@ -56,15 +56,15 @@ TODO: {
 	"Foo", '^#!\" //'), "do () with params");
     }
 
-ok ($dbh->rollback, "rollback");
-ok ($dbh->commit,   "commit");
+ok ($dbh->rollback,	"rollback");
+ok ($dbh->commit,	"commit");
 
 ok ($dbh->do ("update DIRS set DIRNAME = 'Foo' where DIRNAME = '^#!\" //'"), "do () reverse");
 
 # =============================================================================
 
-ok ($dbh->disconnect, "disconnect");
-ok (!$dbh->{Active}, "!Active");
-ok (!$dbh->ping, "!ping");
+ok ($dbh->disconnect,	"disconnect");
+ok (!$dbh->{Active},	"!Active");
+ok (!$dbh->ping,	"!ping");
 
 exit 0;

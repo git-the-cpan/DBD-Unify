@@ -6,6 +6,7 @@ use strict;
 use Cwd qw( cwd abs_path );
 
 use ExtUtils::MakeMaker;
+use Config;
 
 use DBI 1.42;
 use DBI::DBD;
@@ -112,9 +113,10 @@ sub CheckUnify
     $ULDOPTS = -f "ulib/libgcc.a" ? " -lgcc" : "";
 
     my ($rev) = ("@sqlv" =~ m/Revision:\s+(\d[.\d]*)/);
+    my $dlext = $Config{dlext} || "sl";
     my $try_shared = $^O eq "hpux" && $rev >= 8.2 ? 1 : 0;
     if ($try_shared) {
-	if (<ulib/*.sl >) {
+	if (<ulib/*.$dlext >) {
 	    print "Build a shared lib version? [Y/n] > Y\b";
 	    my $answer = <STDIN>;
 	    $answer =~ m/^\s*[Qq]/   and exit;
@@ -133,8 +135,8 @@ sub CheckUnify
 	    else {
 		chdir $UNIFY or die "Cannot chdir to $UNIFY: $!\n";
 		foreach my $a (<*.a >) {
-		    $a eq "ACLMAIN.a" and next;
-		    (my $sl = "lib$a") =~ s/\.a$/.sl/;
+		    $a eq "ACLMAIN.a" || $a eq "libgcc.a" and next;
+		    (my $sl = "lib$a") =~ s/\.a$/.$dlext/o;
 		    $sl =~ s/^liblib/lib/;
 		    -f $sl and next;	# Already done;
 		    mkdir "_a_SL" or die "Cannot create temp dir for conversion: $!";
@@ -177,7 +179,7 @@ sub CheckUnify
     Check ("bin/SQL");
     Check ("bin/EPP");
     if ($try_shared) {
-	map { Check ("lib/lib${_}.sl") } @ulibs;
+	map { Check ("lib/lib${_}.$dlext") } @ulibs;
 	}
     else {
 	map { Check ($_) } split m/ u/ => $ULIBS;
