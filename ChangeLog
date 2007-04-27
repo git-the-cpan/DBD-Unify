@@ -1,3 +1,13 @@
+*** Release 0.61 - Fri 27 Apr 2007 <h.m.brand@xs4all.nl>
+
+    - Small README changes. Typo fixes.
+    - Swapped libusu and libudsu (Ron Kuris)
+    - Use DBIh_SET_ERR_CHAR () and support SQLSTATE throughout
+    - Use DBIc_TRACE_LEVEL () where possible
+    - Use DBIc_DBISTATE (imp_sth)->get_fbav (imp_sth) instead
+      of DBIS->get_fbav (imp_sth);
+      . All three of the above should also speed up the DBD
+
 *** Release 0.60 - Thu 09 Feb 2006 <h.m.brand@xs4all.nl>
 
     - TEXT/BINARY support

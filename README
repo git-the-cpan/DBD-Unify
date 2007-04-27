@@ -2,11 +2,6 @@ DBD::Unify --  a Unify interface for Perl 5 using DBI.
 
 This is the Database Driver for the Unify family of database products.
 
-   Copyright (c) 1999-2006  H.Merijn Brand <h.m.brand@xs4all.nl>
-
-   You may distribute under the terms of either the GNU General Public
-   License or the Artistic License, as specified in the Perl README file.
-
 See the ChangeLog file for a complete history
 
 REQUIREMENTS
@@ -16,7 +11,7 @@ REQUIREMENTS
     does not mean it might not work on U2000 databases or other DataServer
     releases.
 
-    It uses DBI 1.51 and perl5.6.2, perl-5.8.7, or perl5.9.2, but might get
+    It uses DBI 1.51 and perl5.6.2, perl-5.8.7, or perl5.9.4, but might get
     it to work with DBI 0.93 or higher and perl 5.005 or higher. But then
     again, in that case you should consider an upgrade. As of DBD-Unify-0.40
     I've made DBI-1.42 prerequisite.
@@ -105,7 +100,8 @@ SHARED BUILDS on HP-UX
     are now built with the +Z option, so it is easy to convert the static
     libraries (.a) to shared libraries (.sl). The Makefile build process
     will propose such transition, and - once succeeded - use it for the now
-    shared object, which is *much* smaller than when built statically.
+    shared object, which is *much* smaller than when built statically. This
+    does not always work. If things fail, choose for the static route.
     
 RESTRICTIONS:
 
@@ -135,7 +131,7 @@ RESTRICTIONS:
 
       DBD::Unify tries to return the {TYPE} attribute in ANSI/ODBC DBI
       compliant coding, and has the original Unify field type available
-      in the {uni_types} attribute. Fot AMOUNT and HUGE AMOUNT however,
+      in the {uni_types} attribute. For AMOUNT and HUGE AMOUNT however,
       ANSI has no defined codes. These will be returned as SQL_FLOAT and
       SQL_DOUBLE, with the {SCALE} set to 2.
 
@@ -148,7 +144,9 @@ RESTRICTIONS:
       fields, but the /maximum/ PRECISION for those fields
 
     # Unify only distributes static libraries, so the module might
-      become rather big
+      become rather big. Libraries on AIX are always shared, and some
+      of Unify's libraries can safely be converted to shared libs,
+      but that is no guarantee to work.
 
     # At least until 8.2, Unify library pool does *NOT* allow more then
       one different database open at the same time from within the same
@@ -200,7 +198,7 @@ ACKNOWLEDGEMENTS
 
 COPYRIGHT AND LICENSE
 
-    Copyright (C) 1999-2006 H.Merijn Brand
+    Copyright (C) 1999-2006  H.Merijn Brand <h.m.brand@xs4all.nl>
 
     This library is free software; you can redistribute it and/or modify
     it under the same terms as Perl itself. 

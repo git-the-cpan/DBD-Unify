@@ -64,25 +64,25 @@ my $sth;
 
 ok ($sth = $dbh->do ("update foo set baz = 1 where bar = 'Wrong'"), "do update");
 
-is ($DBI::err, -2046,					"err -2046");
-is ($DBI::errstr, "Invalid table name.",		"Invalid table name");
-ok ($DBI::state  eq "" || $DBI::state eq "S1000",	"err state S1000");
-is ($DBI::rows,   -1,					"err row count");
+is   ($DBI::err, -2046,					"err -2046");
+is   ($DBI::errstr, "Invalid table name.",		"Invalid table name");
+like ($DBI::state, qr{^(?:S1000|30500)?$},		"err state S1000/30500");
+is   ($DBI::rows,   -1,					"err row count");
 
 # Methods common to all handles
 
 # -- err, errstr, state and rows as methods
 
-is ($dbh->err, -2046,					"err method");
-is ($dbh->errstr, "Invalid table name.",		"errstr method");
-ok ($dbh->state  eq "" || $dbh->state eq "S1000",	"state method");
-is ($dbh->rows,   -1,					"rows method");
+is   ($dbh->err, -2046,					"err method");
+is   ($dbh->errstr, "Invalid table name.",		"errstr method");
+like ($dbh->state, qr{^(?:S1000|30500)?$},		"state method");
+is   ($dbh->rows,   -1,					"rows method");
 
 # -- trace_msg
 
-is ($dbh->trace_msg ("Foo\n"),		"",		"trace msg");
-is ($dbh->trace_msg ("Bar\n", 0),	"1",		"trace msg 2");
-is (scalar <TRC>,			"Bar\n",	"message from log");
+is   ($dbh->trace_msg ("Foo\n"),	"",		"trace msg");
+is   ($dbh->trace_msg ("Bar\n", 0),	"1",		"trace msg 2");
+is   (scalar <TRC>,			"Bar\n",	"message from log");
 
 # -- func
 

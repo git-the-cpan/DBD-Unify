@@ -97,7 +97,7 @@ sub CheckUnify
 	U2000c.a
 	S2000u.a S2000c.a U2000r.a
 	libnwrpc.a libnwstcp.a
-	libudsu.a libusu.a
+	libusu.a libudsu.a
 	U2000c.a U2000u.a);
     print "Link (L)ocal-only, (R)emote-only, or (B)oth? [L/r/b] > L\b";
     my $localremote = scalar <STDIN>;

@@ -83,7 +83,7 @@ use DBI 1.42;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.60";
+$VERSION = "0.61";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -132,6 +132,9 @@ sub connect
 	}
     # More checks here if wanted ...
 
+    $user = "" unless defined $user;
+    $auth = "" unless defined $auth;
+    
     # create a 'blank' dbh
     my $dbh = DBI::_new_dbh ($drh, {
 	Name          => $dbname,
@@ -139,9 +142,6 @@ sub connect
 	CURRENT_USER  => $user,
 	});
 
-    $user = "" unless defined $user;
-    $auth = "" unless defined $auth;
-    
     # Connect to the database..
     DBD::Unify::db::_login ($dbh, $dbname, $user, $auth)
 	or return undef;
@@ -281,7 +281,7 @@ sub foreign_key_info ($$$$$$;$)
 		)],
 	    {}
 	    });
-    } # link_info
+    } # foreign_key_info
 
 # type = "R" ? references me : references
 # This is to be converted to foreign_key_info
@@ -348,9 +348,7 @@ and DBD::Unify.
 
 =over 2
 
-=item *
-
-returned types
+=item returned types
 
 The DBI docs state that:
 
@@ -371,9 +369,7 @@ Chars are returned as strings (perl's PVs).
 Chars, Dates, Huge Dates and Times are returned as strings (perl's PVs).
 Unify represents midnight with 00:00, not 24:00.
 
-=item *
-
-connect
+=item connect
 
     connect ("DBI:Unify:dbname[;options]" [, user [, auth [, attr]]]);
 
@@ -408,9 +404,7 @@ local database
 
     connect ("/data/db/unify/v63AB", "", "SYS")
 
-=item *
-
-AutoCommit
+=item AutoCommit
 
 It is recommended that the C<connect> call ends with the attributes
 S<{ AutoCommit => 0 }>, although it is not implemented (yet).
@@ -419,9 +413,7 @@ If you dont want to check for errors after B<every> call use
 S<{ AutoCommit => 0, RaiseError => 1 }> instead. This will C<die> with
 an error message if any DBI call fails.
 
-=item *
-
-re-connect
+=item re-connect
 
 Though both the syntax and the module support connecting to different
 databases, even at the same time, the Unify libraries seem to quit
@@ -451,18 +443,14 @@ or implicit:
      $dbh->disconnect;
      }  # $dbh implicitly destroyed by end-of-scope
 
-=item *
-
-do
+=item do
 
  $dbh->do ($statement)
 
 This is implemented as a call to 'EXECUTE IMMEDIATE' with all the
 limitations that this implies.
 
-=item *
-
-commit and rollback invalidates open cursors
+=item commit and rollback invalidates open cursors
 
 DBD::Unify does warn when a commit or rollback is isssued on a $dbh
 with open cursors.
@@ -491,6 +479,10 @@ Just here for DBI. No use in telling the end-user what to do with it :)
 
 =item data_sources
 
+There is no way for Unify to tell what data sources might be available.
+There is no central files (like /etc/oratab for Oracle) that lists all
+available sources, so this mothod will allways return an empty list.
+
 =item do
 
 =item prepare
@@ -508,6 +500,96 @@ Just here for DBI. No use in telling the end-user what to do with it :)
 =head2 Stuff implemented in C (XS)
 
 =over 2
+
+=item trace
+
+The C<DBI-E<gt>trace (level)> call will promote the level to DBD-Unify, showing
+both the DBI layer debugging messages as well as the DBD-Unify debug messages.
+It is however also possible to trace B<only> the DBD-Unify without the
+C<DBI-E<gt>trace ()> call by using the C<uni_verbose> attribute on C<connect ()>.
+Currently, the following levels are defined:
+
+=over 2
+
+=item 1
+
+No messages implemented (yet) at level 1
+
+=item 2
+
+Level 1 plus main method entry and exit points:
+
+  DBD::Unify::dbd_db_STORE (ScanLevel = 7)
+  DBD::Unify::st_prepare u_sql_00_000000 ("select * from foo")
+  DBD::Unify::st_prepare u_sql_00_000000 (<= 4, => 0)
+  DBD::Unify::st_execute u_sql_00_000000
+  DBD::Unify::st_destroy 'select * from parm'
+  DBD::Unify::st_free u_sql_00_000000
+  DBD::Unify::st 0x7F7F25CC 0x0000 0x0000 0x00000000 0x00000000 0x00000000
+  DBD::Unify::st destroyed
+  DBD::Unify::db_disconnect
+  DBD::Unify::db_destroy
+
+=item 3
+
+Level 2 plus errors and additional return codes and field types and values:
+
+  DBD::Unify::st_prepare u_sql_00_000000 ("select c_bar from foo where c_foo = 1")
+      After allocate, sqlcode = 0
+      After prepare,  sqlcode = 0
+      After allocate, sqlcode = 0
+      After describe, sqlcode = 0
+      After count,    sqlcode = 0, count = 1
+  DBD::Unify::fld_describe o_sql_00_000000 (1 fields)
+      After get,      sqlcode = 0
+  DBD::Unify::st_prepare u_sql_00_000000 (<= 1, => 0)
+  DBD::Unify::st_execute u_sql_00_000000
+      After open,     sqlcode = 0 (=> 0)
+  DBD::Unify::st_fetch u_sql_00_000000
+      Fetched         sqlcode = 0, fields = 1
+      After get,      sqlcode = 0
+       Field   1: c_bar: NUMERIC  4: (6030) 6030 ==
+       Fetch done
+  DBD::Unify::st_finish u_sql_00_000000
+      After close,    sqlcode = 0
+  DBD::Unify::st_destroy 'select c_bar from foo where c_foo = 1'
+  DBD::Unify::st_free u_sql_00_000000
+      After deallocO, sqlcode = 0
+      After deallocU, sqlcode = 0
+
+=item 4
+
+Level 3 plus some content info:
+
+  DBD::Unify::st_fetch u_sql_00_000000
+      Fetched         sqlcode = 0, fields = 1
+      After get,      sqlcode = 0
+       Field   1: [05 00 04 00 00] c_bar: NUMERIC  4: (6030) 6030 ==
+       Fetch done
+
+=item 5
+
+Level 4 plus internal coding for exchanges and low(er) level return codes:
+
+  DBD::Unify::fld_describe o_sql_00_000000 (1 fields)
+      After get,      sqlcode = 0
+       Field   1: [05 00 04 00 FFFFFFFF] c_bar
+  DBD::Unify::st_prepare u_sql_00_000000 (<= 1, => 0)
+
+=item 6
+
+Level 5 plus destroy/cleanup states:
+
+  DBD::Unify::st_free u_sql_00_000000
+   destroy allocc destroy alloco    After deallocO, sqlcode = 0
+   destroy alloci destroy allocp    After deallocU, sqlcode = 0
+   destroy stat destroy growup destroy impset
+
+=item 7
+
+No messages (yet) set to level 7 and up.
+
+=back
 
 =item int  dbd_bind_ph (SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
 

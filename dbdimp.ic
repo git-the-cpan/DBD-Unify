@@ -84,7 +84,7 @@ va_dcl
 {
     auto	va_list	args;
 
-    if (level > dbis->debug && level > opt_v)
+    if (level > opt_v && level > dbis->debug)
 	return;
 
 #ifdef I_STDARG
@@ -116,13 +116,10 @@ void dbd_init (dbistate_t *dbistate)
     /* dbis->debug = 9; */
     } /* dbd_init */
 
-static void error (SV *h, int error_num, char *text, char *state)
+static void error (SV *h, int error_num, char *text)
 {
     D_imp_xxh (h);
-    sv_setiv (DBIc_ERR    (imp_xxh), (IV)error_num);
-    sv_setpv (DBIc_ERRSTR (imp_xxh), text);
-    unless (state)
-	sv_setpv (DBIc_STATE (imp_xxh), state);
+    DBIh_SET_ERR_CHAR (h, imp_xxh, Nullch, error_num, text, SQLSTATE, Nullch);
     } /* error */
 
 static int sqlError (SV *h)
@@ -136,7 +133,7 @@ static int sqlError (SV *h)
 
     dbg (3, "DBD::Unify::sqlError: SQLCODE = %d", SQLCODE);
 
-    error (h, SQLCODE, ufchmsg (SQLCODE, &status), SQLSTATE);
+    error (h, SQLCODE, ufchmsg (SQLCODE, &status));
     dbg (3, ", returning\n");
     return (0);
     } /* sqlError */
@@ -216,7 +213,7 @@ int dbd_db_login (SV *dbh, imp_dbh_t *imp_dbh,
 	}
 
     unless (sth_id_on || (sth_id_on = (byte *)calloc (n_sth_id, 8))) {
-	error (dbh, errno, "Cannot allocate space for STH's", 0);
+	error (dbh, errno, "Cannot allocate space for STH's");
 	return (0);
 	}
     return (1);
@@ -237,7 +234,7 @@ static void change_offspring (SV *dbh, imp_dbh_t *imp_dbh)
 
     for (i = 0; i < n; i++) {
 	imp_sth_t *imp_sth = children[i];
-	if (2 > dbis->debug && 2 > opt_v) {
+	if (2 > DBIc_TRACE_LEVEL (imp_sth) && 2 > opt_v) {
 	    dbg (2, "-- %03d/%03d 0x%08X %02X",
 		i + 1, n, imp_sth, imp_sth ? imp_sth->stat : 0);
 	    if (imp_sth && imp_sth->statement)
@@ -497,19 +494,19 @@ static short new_sth_id (SV *dbh)
 	sth_id_on[n_sth_id++] = (byte)0;
 	return (b);
 	}
-    error (dbh, errno, "Cannot allocate extra space for STH's", 0);
+    error (dbh, errno, "Cannot allocate extra space for STH's");
     return (0);
     } /* new_sth_id */
 
 static short clr_sth_id (SV *dbh, short id)
 {
     if (id <= 0 || id > n_sth_id * 8) {
-	error (dbh, 0, "Cannot clr invalid statement ID", 0);
+	error (dbh, 0, "Cannot clr invalid statement ID");
 	return (0);
 	}
     id--;
     unless (sth_id_on[id / 8] & (1 << (id % 8))) {
-	error (dbh, 0, "Cannot clr statement ID already cleared (threading?)", 0);
+	error (dbh, 0, "Cannot clr statement ID already cleared (threading?)");
 	return (0);
 	}
     sth_id_on[id / 8] &= ~(1 << (id % 8));
@@ -519,12 +516,12 @@ static short clr_sth_id (SV *dbh, short id)
 static int use_sth_id (SV *dbh, short dbhid, short id)
 {
     if (id <= 0 || id > n_sth_id * 8) {
-	error (dbh, 0, "Cannot use invalid statement ID", 0);
+	error (dbh, 0, "Cannot use invalid statement ID");
 	return (0);
 	}
     id--;
     unless (sth_id_on[id / 8] & (1 << (id % 8))) {
-	error (dbh, 0, "Cannot use statement ID", 0);
+	error (dbh, 0, "Cannot use statement ID");
 	return (0);
 	}
     (void)sprintf (u_sql_nm, "u_sql_%02d_%06d", dbhid, id);
@@ -1036,7 +1033,6 @@ int dbd_bind_ph (SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
 	    }
 	}
     dbg (3, " ==\n");
-
     return (1);
     } /* dbd_bind_ph */
 
@@ -1110,7 +1106,7 @@ AV *dbd_st_fetch (SV *sth, imp_sth_t *imp_sth)
     dbg (2, "DBD::Unify::st_fetch %s\n", u_sql_nm);
 
     unless (DBIc_ACTIVE (imp_sth)) {
-	error (sth, -7, "fetch without open cursor", 0);
+	error (sth, -7, "fetch without open cursor");
 	return (Nullav);
 	}
 
@@ -1123,7 +1119,7 @@ AV *dbd_st_fetch (SV *sth, imp_sth_t *imp_sth)
 	FETCH                :c_sql_nm
 	USING SQL DESCRIPTOR :o_sql_nm;
 
-    av = DBIS->get_fbav (imp_sth);
+    av = DBIc_DBISTATE (imp_sth)->get_fbav (imp_sth);
     num_fields = AvFILL (av) + 1;
 
     dbg (3, "    Fetched         sqlcode = %d, fields = %d\n",
