@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 21;
+use Test::More tests => 22;
 
 # Test if all of the documented DBI API is implemented and working OK
 
@@ -12,14 +12,26 @@ BEGIN { use_ok ("DBI") }
 # =============================================================================
 
 my ($schema, $dbh) = ("DBUTIL");
+
+#eval q{ {
+#    local $ENV{UNIFY};
+#    $dbh = DBI->connect ("dbi:Unify:", "", "", {
+#	RaiseError => 0,
+#	PrintError => 0,
+#	});
+#    } };
+#like ($DBI::errstr, qr{UNIFY' directory does not exist},	"undefined \$UNIFY");
+
 ok ($dbh = DBI->connect ("dbi:Unify:", "", $schema), "connect");
 
 unless ($dbh) {
-    BAILOUT ("Unable to connect to Unify ($DBI::errstr)\n");
+    BAIL_OUT ("Unable to connect to Unify ($DBI::errstr)\n");
     exit 0;
     }
 
 # =============================================================================
+
+ok ( DBD::Unify->driver,	"Top level driver");
 
 # Attributes common to all handles
 
@@ -44,16 +56,15 @@ ok (@tables == 1 && $tables[0] eq "SYS.ACCESSIBLE_COLUMNS", "got only one");
 # the DIRS table ;-)
 
 ok ($dbh->do ("update DIRS set DIRNAME = 'Foo' where DIRNAME = '^#!\" //'"), "do update");
-TODO: {
+{   # Disable the warner, as the attributes are still unused
     local $SIG{__WARN__} = sub {};
-    local $TODO = "support attribs in \$dbh->do ()";
-    ok ($dbh->do ("update DIRS set DIRNAME = 'Foo' where DIRNAME = '^#!\" //'",
-	{ uni_verbose => 1 }), "do () with attributes");
 
-    local $TODO = "support params in \$dbh->do ()";
+    ok ($dbh->do ("update DIRS set DIRNAME = 'Foo' where DIRNAME = '^#!\" //'",
+	{ uni_verbose => 1 }), "do () with 'unused' attributes");
+
     ok ($dbh->do ("update DIRS set DIRNAME = ? where DIRNAME = ?",
 	{ uni_verbose => 1 },
-	"Foo", '^#!\" //'), "do () with params");
+	"Foo", '^#!\" //'), "do () with 'unused' params");
     }
 
 ok ($dbh->rollback,	"rollback");

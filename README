@@ -9,16 +9,30 @@ REQUIREMENTS
     It has been ported and tested on DataServer 6.3AB, 6.3BE, 8.1CC, 8.1CE,
     8.1DAB, 8.2AC, 8.2AD, 8.2B, 8.3E/64, 8.3F/64, and 8.3KAB/64, but this
     does not mean it might not work on U2000 databases or other DataServer
-    releases.
+    releases. I do not yet have a DS 9.x to play with.
 
-    It uses DBI 1.51 and perl5.6.2, perl-5.8.7, or perl5.9.4, but might get
+    I use DBI 1.55 and perl5.6.2, perl-5.8.8, or perl5.9.5, but might get
     it to work with DBI 0.93 or higher and perl 5.005 or higher. But then
     again, in that case you should consider an upgrade. As of DBD-Unify-0.40
     I've made DBI-1.42 prerequisite.
 
     If you plan to use DataServer 8.1 or higher database in Unicode encoding
-    (UTF-8), use perl5.8.0 or up (or at least 5.7.3), which has full Unicode
-    3.2 support. Perl 5.8.7 supports Unicode 4.0.1.
+    (UTF-8), use perl5.8.0 or up (or at least 5.7.3). See the Unicode site
+    for the differences between the Unicode standards if you want to know
+    what to expect (http://www.unicode.org/versions/enumeratedversions.html).
+
+      Perl    Unicode
+      -----   -------
+      5.9.5     5.0.0  UCD 5.0   released 18 Jul 2006
+      5.8.8     4.1.0
+      5.8.7     4.1.0  UCD 4.1   released 31 Mar 2005
+      5.8.5     4.0.1
+      5.8.3     4.0.0
+      5.8.1     4.0.0  UCD 4.0   released 24 Apr 2003
+      5.8.0     3.2.0  UCD 3.2   reseased 02 Apr 2002
+      5.7.x     3.1.1
+                3.0.x  UCD 3.0   re;eased 29 Feb 2000
+                       UCD 1.0  draft was planned spring 1991 :)
 
     One user has reported success with perl 5.005_03 on SunOS 5.7 with
     gcc-2.7.2.2, DBI-1.30, DBD-Unify-0.24 with DataServer-7.2.
@@ -112,7 +126,7 @@ RESTRICTIONS:
 
     DATE and TIME fields are not fully supported. The database interaction
     works, but there are some issues left to iron out in the user
-    interface. We're woking on it. Suggestions welcome.
+    interface. We're working on it. Suggestions welcome.
 
     TEXT and BINARY fields are supported as of version 0.60, but probably
     not fully tested. Feedback and patches welcome.
@@ -198,7 +212,7 @@ ACKNOWLEDGEMENTS
 
 COPYRIGHT AND LICENSE
 
-    Copyright (C) 1999-2006  H.Merijn Brand <h.m.brand@xs4all.nl>
+    Copyright (C) 1999-2007  H.Merijn Brand <h.m.brand@xs4all.nl>
 
     This library is free software; you can redistribute it and/or modify
     it under the same terms as Perl itself. 

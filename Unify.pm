@@ -1,4 +1,4 @@
-#   Copyright (c) 1999-2006 H.Merijn Brand
+#   Copyright (c) 1999-2007 H.Merijn Brand
 #
 #   You may distribute under the terms of either the GNU General Public
 #   License or the Artistic License, as specified in the Perl README file.
@@ -83,7 +83,7 @@ use DBI 1.42;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.61";
+$VERSION = "0.62";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -163,6 +163,13 @@ package DBD::Unify::db;
 
 $DBD::Unify::db::imp_data_size = 0;
 
+sub ping
+{
+    my $dbh = shift;
+    $dbh->prepare ("select ORD from SYS.ORD") or return 0;
+    return 1;
+    } # ping
+
 sub do
 {
     my ($dbh, $statement, $attribs, @params) = @_;
@@ -202,7 +209,7 @@ sub table_info ($;$$$$)
     my $dbh = shift;
     my ($catalog, $schema, $table, $type, $attr);
     ref $_[0] or ($catalog, $schema, $table, $type) = splice @_, 0, 4;
-    if ($attr = shift and ref $attr) {
+    if ($attr = shift and ref $attr eq "HASH") {
 	exists $attr->{TABLE_SCHEM} and $schema = $attr->{TABLE_SCHEM};
 	exists $attr->{TABLE_NAME}  and $table  = $attr->{TABLE_NAME};
 	exists $attr->{TABLE_TYPE}  and $type   = $attr->{TABLE_TYPE};
@@ -279,7 +286,6 @@ sub foreign_key_info ($$$$$$;$)
 		fk_name uk_name
 		deferability unique_or_primary
 		)],
-	    {}
 	    });
     } # foreign_key_info
 
@@ -290,7 +296,7 @@ sub link_info ($;$$$$)
     my $dbh = shift;
     my ($catalog, $schema, $table, $type, $attr);
     ref $_[0] or ($catalog, $schema, $table, $type) = splice @_, 0, 4;
-    if ($attr = shift and ref $attr) {
+    if ($attr = shift and ref $attr eq "HASH") {
 	exists $attr->{TABLE_SCHEM} and $schema = $attr->{TABLE_SCHEM};
 	exists $attr->{TABLE_NAME}  and $table  = $attr->{TABLE_NAME};
 	exists $attr->{TABLE_TYPE}  and $type   = $attr->{TABLE_TYPE};
@@ -318,12 +324,7 @@ sub link_info ($;$$$$)
     $sth;
     } # link_info
 
-sub ping
-{
-    my $dbh = shift;
-    $dbh->prepare ("select ORD from SYS.ORD") or return 0;
-    return 1;
-    } # ping
+*DBI::db::link_info = \&link_info;
 
 1;
 
@@ -358,15 +359,15 @@ The DBI docs state that:
    may  not preserve the same accuracy when the string is used as a
    number.
 
-Integers are returned as integer values (perl's IVs).
+Integers are returned as integer values (perl's IV's).
 
 (Huge) amounts, floats, reals and doubles are returned as strings for which
-numeric context (perl's NVs) has been invoked already, so adding zero to
+numeric context (perl's NV's) has been invoked already, so adding zero to
 force convert to numeric context is not needed.
 
-Chars are returned as strings (perl's PVs).
+Chars are returned as strings (perl's PV's).
 
-Chars, Dates, Huge Dates and Times are returned as strings (perl's PVs).
+Chars, Dates, Huge Dates and Times are returned as strings (perl's PV's).
 Unify represents midnight with 00:00, not 24:00.
 
 =item connect
@@ -378,7 +379,7 @@ argument. This argument should contain the database
 name possibly followed by a semicolon and the database options
 which are ignored.
 
-Since Unify database authorisation is done using grant's using the
+Since Unify database authorization is done using grant's using the
 user name, the I<user> argument me be empty or undef. The auth
 field will be used as a default schema. If the auth field is empty
 or undefined connect will check for the environment variable $USCHEMA
@@ -387,7 +388,7 @@ default schema, or if none is assigned, in the schema PUBLIC.
 
 At the moment none of the attributes documented in DBI's "ATTRIBUTES
 COMMON TO ALL HANDLES" are implemented specifically for the Unify
-DBD driver, but they might have been inhereted from DBI. The I<ChopBlanks>
+DBD driver, but they might have been inherited from DBI. The I<ChopBlanks>
 attribute is implemented, but defaults to 1 for DBD::Unify.
 The Unify driver supports "uni_scanlevel" to set the transaction scan
 level to a value between 1 and 16 and "uni_verbose" to set DBD specific
@@ -452,14 +453,14 @@ limitations that this implies.
 
 =item commit and rollback invalidates open cursors
 
-DBD::Unify does warn when a commit or rollback is isssued on a $dbh
+DBD::Unify does warn when a commit or rollback is issued on a $dbh
 with open cursors.
 
 Possibly a commit/rollback/disconnect should also undef the $sth's.
 (This should probably be done in the DBI-layer as other drivers will
 have the same problems).
 
-After a commit or rollback the cursors are all ->finish'ed, ie. they
+After a commit or rollback the cursors are all ->finish'ed, i.e. they
 are closed and the DBI/DBD will warn if an attempt is made to fetch
 from them.
 
@@ -481,7 +482,7 @@ Just here for DBI. No use in telling the end-user what to do with it :)
 
 There is no way for Unify to tell what data sources might be available.
 There is no central files (like /etc/oratab for Oracle) that lists all
-available sources, so this mothod will allways return an empty list.
+available sources, so this method will always return an empty list.
 
 =item do
 
@@ -658,7 +659,7 @@ H.Merijn Brand, <h.m.brand@xs4all.nl> developed the DBD::Unify extension.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 1999-2006 H.Merijn Brand
+Copyright (C) 1999-2007 H.Merijn Brand
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

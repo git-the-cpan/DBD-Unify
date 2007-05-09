@@ -20,7 +20,7 @@ use vars qw($UNIFY $UNITOP $ULIBS $ULDOPTS);
 
 CheckUnify ();
 
-my $rv = WriteMakefile (
+my %wm = (
     NAME          =>   "DBD::Unify",
     DISTNAME      =>   "DBD-Unify",
     VERSION_FROM  =>   "Unify.pm",
@@ -60,6 +60,9 @@ my $rv = WriteMakefile (
 		       			. "$UNITOP/bin/ucc",
 		       },
     );
+$ExtUtils::MakeMaker::VERSION > 6.30 and $wm{LICENSE} = "perl";
+
+my $rv = WriteMakefile (%wm);
 
 if ($rv && <ulib/*.s[lo] >) {
     open my $mf, "<Makefile" or die "Cannot modify Makefile: $!\n";
@@ -211,6 +214,11 @@ sub postamble
 	'',
 	'installu uinstall:	all',
 	'	$(PERL) installu.pl',
+	'',
+	'cover test_cover:',
+	'	cover -delete',
+	'	HARNESS_PERL_SWITCHES=-MDevel::Cover $(MAKE) test',
+	'	cover',
 	'';
     } # postamble
 

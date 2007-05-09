@@ -1,3 +1,14 @@
+*** Release 0.62 - Wed 09 May 2007 <h.m.brand@xs4all.nl>
+
+    - Extended Copyright's to 2007
+    - Fixed more typo's in the doc's
+    - Passed LICENSE only to MakeMaker >= 6.30
+    - Tested under DBI-1.55. Make sure to rebuild the DBD
+      *from scratch* (make distclean) when installing DBI-1.55
+    - Updated Unicode versions in README
+    - Added cover target
+    - Added some very basic foreign_key_info () tests
+
 *** Release 0.61 - Fri 27 Apr 2007 <h.m.brand@xs4all.nl>
 
     - Small README changes. Typo fixes.
@@ -99,7 +110,7 @@
 
     - Basic support for DATE/TIME (Tom Poage)
     - Extended test suite for testing DATE/TIME
-    - Alter test behaviour due to authorization failures
+    - Alter test behavior due to authorization failures
     - Safer internals for field name and string values
     - Optional attributes to table_info (from dbi_dev)
     - Acknowledgements in README (Thanks Tom ;-)
@@ -136,7 +147,7 @@
 
 *** Release 0.11 - Mon 11 Dec 2000 <h.m.brand@hccnet.nl>
 
-    - Nursed the orphins myself :-))
+    - Nursed the orphans myself :-))
       (Destructable statement handles are now destroyed on commit,
        rollback and disconnect)
 
@@ -164,7 +175,7 @@
 *** Release 0.08 - Mon 19 May 2000 <h.m.brand@hccnet.nl>
 
     - Described output (DBIc_NUM_FIELDS (imp_sth)) and input
-      (DBIc_NUM_PARAMS (imp_sth)) seperately, so the {NAME} attribute
+      (DBIc_NUM_PARAMS (imp_sth)) separately, so the {NAME} attribute
       is now also supported for OSF/1
     - Repaired ID allocation if exceeded default maximum of 32
     - Added test for ID allocation
@@ -183,14 +194,14 @@
 
     - Saved field descriptor data to implement correct return values of
       $sth->fetchrow_hashref () calls
-    - Test now realy CHECKS what happened, not only spits out what I
+    - Test now really CHECKS what happened, not only spits out what I
       would recognize as succeeded test output. I still rely on RaiseError
       to crash the test on DB failures.
 
 *** Release 0.05 - Thu 23 Mar 2000 <h.m.brand@hccnet.nl>
 
     - Recognize strings w/ negative numbers in bind where !SvIOK (value)
-      In fact drop the SvIOK () check alltogether and let SvIV () do the
+      In fact drop the SvIOK () check altogether and let SvIV () do the
       job, including the warnings. I still want to be able to check the
       value BEFORE the warning, but we'll see ...
     - Index display in bind failure
@@ -216,7 +227,7 @@
     - connect () destroyed $DBPATH :-(
     - Makefile.PL cleanup
     - Minor changes to Unify.pm following DBI::DBD docs
-    - ChopBlanks honoured (default on)
+    - ChopBlanks honored (default on)
     - sqlError () provides descriptive message
     - Unlimited number of statement handles :-)
       I found out I used outdated books :-(
