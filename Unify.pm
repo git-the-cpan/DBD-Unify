@@ -83,7 +83,7 @@ use DBI 1.42;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.62";
+$VERSION = "0.64";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -128,7 +128,7 @@ sub connect
 
     unless ($ENV{UNIFY} && -d $ENV{UNIFY} && -x _) {
 	$drh->{Warn} and
-	    Carp::carp "\$UNIFY not set or invalid. UNIFY may fail\n";
+	    Carp::croak "\$UNIFY not set or invalid. UNIFY may fail\n";
 	}
     # More checks here if wanted ...
 
@@ -209,7 +209,9 @@ sub table_info ($;$$$$)
     my $dbh = shift;
     my ($catalog, $schema, $table, $type, $attr);
     ref $_[0] or ($catalog, $schema, $table, $type) = splice @_, 0, 4;
-    if ($attr = shift and ref $attr eq "HASH") {
+    if ($attr = shift) {
+	ref ($attr) eq "HASH" or
+	    Carp::croak qq{usage: table_info ({ TABLE_NAME => "foo", ... })};
 	exists $attr->{TABLE_SCHEM} and $schema = $attr->{TABLE_SCHEM};
 	exists $attr->{TABLE_NAME}  and $table  = $attr->{TABLE_NAME};
 	exists $attr->{TABLE_TYPE}  and $type   = $attr->{TABLE_TYPE};
@@ -296,7 +298,9 @@ sub link_info ($;$$$$)
     my $dbh = shift;
     my ($catalog, $schema, $table, $type, $attr);
     ref $_[0] or ($catalog, $schema, $table, $type) = splice @_, 0, 4;
-    if ($attr = shift and ref $attr eq "HASH") {
+    if ($attr = shift) {
+	ref ($attr) eq "HASH" or
+	    Carp::croak qq{usage: link_info ({ TABLE_NAME => "foo", ... })};
 	exists $attr->{TABLE_SCHEM} and $schema = $attr->{TABLE_SCHEM};
 	exists $attr->{TABLE_NAME}  and $table  = $attr->{TABLE_NAME};
 	exists $attr->{TABLE_TYPE}  and $type   = $attr->{TABLE_TYPE};

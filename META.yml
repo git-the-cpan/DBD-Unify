@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                DBD-Unify
-version:             0.62
+version:             0.64
 abstract:            DBI driver for Unify database systems
 license:             perl
 generated_by:        ExtUtils::MakeMaker version 6.32

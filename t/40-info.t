@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 59;
+use Test::More tests => 75;
 
 BEGIN { use_ok ("DBI") }
 
@@ -35,7 +35,6 @@ ok ($sth = $dbh->table_info (undef), "table_info (undef)");
 ok ($sth->finish,	"finish");
 ok ($sth = $dbh->table_info ({
     TABLE_CAT   => undef,
-    TABLE_SCHEM => undef,
     TABLE_NAME  => undef,
     TABLE_TYPE  => undef,
     }), "table_info ({ TABLE_*** => undef })");
@@ -53,8 +52,6 @@ ok ($sth->finish,	"finish");
 ok ($sth = $dbh->table_info ({
     TABLE_CAT   => undef,
     TABLE_SCHEM => "DIRS",
-    TABLE_NAME  => undef,
-    TABLE_TYPE  => undef,
     }), "table_info (undef, 'DIRS')");
 ok ($sth->bind_columns (\($catalog, $schema, $table, $type, $rw)), "bind");
 $n = 0;
@@ -85,11 +82,23 @@ ok ($sth->finish,	"finish");
 ok ($sth = $dbh->link_info ({
     TABLE_SCHEM => $ENV{USCHEMA}||"PUBLIC",
     TABLE_NAME  => "DIRS",
-    TABLE_TYPE  => "T"}), "\$dbh->link_info ()");
+    TABLE_TYPE  => "T" }), "\$dbh->link_info (PUBLIC, DIRS, T)");
+ok ($sth->finish,	"finish");
+ok ($sth = $dbh->link_info ({
+    TABLE_SCHEM => undef,
+    TABLE_NAME  => "XYZZY",
+    TABLE_TYPE  => "T" }), "\$dbh->link_info (undef, XYZZY, T)");
+ok ($sth->finish,	"finish");
+ok ($sth = $dbh->link_info (undef, "XYZZY", undef), "\$dbh->link_info (XYZZY,)");
+ok ($sth->finish,	"finish");
+ok ($sth = $dbh->link_info (undef, undef, "XYZZY"), "\$dbh->link_info (,XYZZY)");
 ok ($sth->finish,	"finish");
 ok ($sth = $dbh->link_info (undef, undef, "DIRS", "R"), "\$dbh->link_info (..., 'R')");
 ok ($sth->finish,	"finish");
 ok ($sth = $dbh->link_info (undef, undef, "DIRS", ""), "\$dbh->link_info (..., '')");
+ok ($sth->finish,	"finish");
+ok ($sth = $dbh->link_info ({
+    TABLE_CAT => "foo" }), "\$dbh->link_info ({ TABLE_CAT => \"foo\" })");
 ok ($sth->finish,	"finish");
 
 ok (1, "-- foreign_key_info ()");
@@ -111,5 +120,28 @@ ok ($sth->finish,	"finish");
 
 ok ($dbh->rollback,	"rollback");
 ok ($dbh->disconnect,	"disconnect");
+
+# Failure testing
+
+$dbh->{RaiseError} = 1;
+$dbh->{PrintError} = 0;
+$dbh->{PrintWarn}  = 0;
+
+undef  $sth;
+eval { $sth = $dbh->table_info ([])};
+is ($sth, undef, "table_info ([])");
+is ($DBI::errstr, undef, "table_info ([]) has no DBI error message");
+# DBI seems to catch this
+like ($@, qr{^usage: table_info \(}, "table_info ([]) error message");
+ 
+eval { $sth = $dbh->link_info  ([])};
+is ($sth, undef, "link_info ([])");
+is ($DBI::errstr, undef, "link_info ([]) has no DBI error message");
+like ($@, qr{^usage: link_info \(}, "link_info ([]) error message");
+
+# UNIFY does npt support CAT
+eval { $sth = $dbh->table_info ("foo", undef, undef, undef) };
+is ($sth, undef, "table_info (\"foo\", undef, undef, undef)");
+is ($DBI::errstr, undef, "table_info ([]) has no DBI error message");
 
 exit 0;

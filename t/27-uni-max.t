@@ -21,7 +21,7 @@ BEGIN {
 	}
     else {
 	plan tests => $tests;
-	print STDERR "To disable future max tests: setenv DBD_UNIFY_SKIP_27 1\n";
+	print STDERR "# To disable future max tests: setenv DBD_UNIFY_SKIP_27 1\n";
 	}
 
     use_ok ("DBI");
