@@ -34,7 +34,7 @@ ok (1, "-- CREATE THE TABLE");
 ok ($dbh->do (join " " =>
     "create table xx (",
     "    xs numeric       (4) not null,",
-    "    xt text",
+    "    xb binary",
     ")"), "create");
 if ($dbh->err) {
     BAIL_OUT ("Unable to create table ($DBI::errstr)\n");
@@ -43,16 +43,16 @@ if ($dbh->err) {
 ok ($dbh->commit, "commit");
 
 ok (1, "-- FILL THE TABLE");
-ok ($dbh->do ("insert into xx values (0, 'Some text')"));
+ok ($dbh->do ("insert into xx values (0, 'Some \001 binary')"));
 foreach my $v ( 1 .. 5 ) {
-    my $t = "x" x (1 << $v);
+    my $t = "\001" x (1 << $v);
     ok ($dbh->do ("insert into xx values ($v, '$t')"), "INS $v");
     }
 ok (1, "-- FILL THE TABLE, POSITIONAL");
 my $sth;
 ok ($sth = $dbh->prepare ("insert into xx values (?,?)"), "ins prepare");
 foreach my $v ( 6 .. 10 ) {
-    my $t = "x" x (1 << $v);
+    my $t = "\001" x (1 << $v);
     ok ($sth->execute ($v, $t), "ins $v");
     }
 ok ($sth->finish, "finish");
@@ -61,21 +61,21 @@ ok ($dbh->commit, "commit");
 $" = ", ";
 ok (1, "-- SELECT FROM THE TABLE");
 my %result_ok = (
-    0 => "0, 'Some text'",
+    0 => "0, 'Some \001 binary'",
 
-    1 => "1, 'xx'",
-    2 => "2, 'xxxx'",
-    3 => "3, 'xxxxxxxx'",
-    4 => "4, 'xxxxxxxxxxxxxxxx'",
-    5 => "5, 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'",
+    1 => "1, '\001\001'",
+    2 => "2, '\001\001\001\001'",
+    3 => "3, '\001\001\001\001\001\001\001\001'",
+    4 => "4, '\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001'",
+    5 => "5, '\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001\001'",
     );
 ok ($sth = $dbh->prepare ("select * from xx where xs between 0 and 5"), "sel prepare");
 ok (1, "-- Check the internals");
 {   local $" = ":";
     my %attr = (
-	NAME      => "xs:xt",
-	uni_types => "5:-9",
-	TYPE      => "5:-1",
+	NAME      => "xs:xb",
+	uni_types => "5:-10",
+	TYPE      => "5:-3",
 	PRECISION => "4:0",
 	SCALE     => "0:0",
 	NULLABLE  => "0:1",	# Does not work in Unify (yet)
@@ -86,46 +86,46 @@ ok (1, "-- Check the internals");
 	}
     }
 ok ($sth->execute, "execute");
-while (my ($xs, $xt) = $sth->fetchrow_array ()) {
-    is ($result_ok{$xs}, "$xs, '$xt'", "fetchrow_array $xs");
+while (my ($xs, $xb) = $sth->fetchrow_array ()) {
+    is ($result_ok{$xs}, "$xs, '$xb'", "fetchrow_array $xs");
     }
 ok ($sth->finish, "finish");
 
 ok (1, "-- SELECT FROM THE TABLE, POSITIONAL");
-ok ($sth = $dbh->prepare ("select xt from xx where xs = ?"), "sel prepare");
+ok ($sth = $dbh->prepare ("select xb from xx where xs = ?"), "sel prepare");
 foreach my $xs (1 .. 10) {
     ok ($sth->execute ($xs), "execute $xs");
-    my ($xt) = $sth->fetchrow_array;
-    is (1 << $xs, length ($xt), "Length val $xs");
-    is ($xt, "x" x (1 << $xs), "fetch positional $xs");
+    my ($xb) = $sth->fetchrow_array;
+    is (1 << $xs, length ($xb), "Length val $xs");
+    is ($xb, "\001" x (1 << $xs), "fetch positional $xs");
     }
 ok (1, "-- Check the bind_columns");
-{   my $xt = "";
-    ok ($sth->bind_columns (\$xt), "bind \$xt");
+{   my $xb = "";
+    ok ($sth->bind_columns (\$xb), "bind \$xb");
     ok ($sth->execute (3), "execute 3");
     ok ($sth->fetchrow_arrayref, "fetchrow_arrayref");
-    is ($xt, "xxxxxxxx", "fetched");
+    is ($xb, "\001\001\001\001\001\001\001\001", "fetched");
     }
 ok ($sth->finish, "finish");
 
-{   my ($r, $xt);
+{   my ($r, $xb);
     $r .= chr int rand 256 for 0 .. 132_000;
     ok ($r, "128k+ random data");
-    ok ($sth = $dbh->prepare ("update xx set xt = ? where xs = 3"), "prepare update");
+    ok ($sth = $dbh->prepare ("update xx set xb = ? where xs = 3"), "prepare update");
     ok ($sth->execute ($r), "execute update");
     ok ($sth->finish, "finish update");
-    ok ($sth = $dbh->prepare ("select xt from xx where xs = ?"), "prepare select");
+    ok ($sth = $dbh->prepare ("select xb from xx where xs = ?"), "prepare select");
     ok ($sth->execute (3), "execute select");
-    ok (($xt) = $sth->fetchrow_array (), "fetch random data");
-    is (length ($xt), length ($r), "length");
-    is ($xt, $r, "Data");
+    ok (($xb) = $sth->fetchrow_array (), "fetch random data");
+    is (length ($xb), length ($r), "length");
+    is ($xb, $r, "Data");
     ok ($sth->finish, "finish select");
     ok ($sth->execute (3), "execute select 2");
-    undef $xt;
-    ok ($sth->bind_columns (\$xt), "bind_columns");
+    undef $xb;
+    ok ($sth->bind_columns (\$xb), "bind_columns");
     ok ($sth->fetch, "fetch random data to bound column");
-    is (length ($xt), length ($r), "length");
-    is ($xt, $r, "Data");
+    is (length ($xb), length ($r), "length");
+    is ($xb, $r, "Data");
     ok ($sth->finish, "finish select");
     }
 

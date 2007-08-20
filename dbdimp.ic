@@ -62,6 +62,7 @@ int	n_sql_st;
 int	fix, fln, fic, ftp, fpr, fsc, fnl;
 char	fnm[48], fdC[260];
 utxtptr	fdB;
+ubinptr	fdX;
 short	fdS;
 int	fdL;
 float	fdF;
@@ -187,11 +188,11 @@ int dbd_db_login (SV *dbh, imp_dbh_t *imp_dbh,
     /* Problem number 22960: 2nd Connect to same database fails */
     if (SQLCODE == -254) SQLCODE = 0;
 
-    unless (sqlError (dbh))
-	return (0);
-
     DBIc_IMPSET_on (imp_dbh);	/* imp_dbh set up now                   */
     DBIc_ACTIVE_on (imp_dbh);	/* call disconnect before freeing       */
+
+    unless (sqlError (dbh))
+	return (0);
 
     DBIc_set (imp_dbh, DBIcf_AutoCommit, 0);
     DBIc_set (imp_dbh, DBIcf_ChopBlanks, 1);
@@ -234,6 +235,7 @@ static void change_offspring (SV *dbh, imp_dbh_t *imp_dbh)
 
     for (i = 0; i < n; i++) {
 	imp_sth_t *imp_sth = children[i];
+	if (!imp_sth || imp_sth->stat & ST_STAT_OPEN) continue;
 	if (2 > DBIc_TRACE_LEVEL (imp_sth) && 2 > opt_v) {
 	    dbg (2, "-- %03d/%03d 0x%08X %02X",
 		i + 1, n, imp_sth, imp_sth ? imp_sth->stat : 0);
@@ -241,7 +243,6 @@ static void change_offspring (SV *dbh, imp_dbh_t *imp_dbh)
 		dbg (2, " '%s'", imp_sth->statement);
 	    dbg (2, "\n");
 	    }
-	if (!imp_sth || imp_sth->stat & ST_STAT_OPEN) continue;
 	dbd_st_destroy (dbh, imp_sth);
 	}
     } /* change_offspring */
@@ -651,6 +652,7 @@ int dbd_st_prepare (SV *sth, imp_sth_t *imp_sth, char *statement, SV *attribs)
     imp_sth->fld  = (imp_fld_t *)0;
     imp_sth->prm  = (imp_fld_t *)0;
     dbd_st_diaper (imp_dbh, imp_sth);
+    DBIc_IMPSET_on (imp_sth);
 
     EXEC SQL
 	ALLOCATE   :c_sql_nm
@@ -739,7 +741,6 @@ int dbd_st_prepare (SV *sth, imp_sth_t *imp_sth, char *statement, SV *attribs)
     dbg (2, "DBD::Unify::st_prepare %s (<= %d, => %d)\n", u_sql_nm,
 	DBIc_NUM_FIELDS (imp_sth), DBIc_NUM_PARAMS (imp_sth));
 
-    DBIc_IMPSET_on (imp_sth);
     return (1);
     } /* dbd_st_prepare */
 
@@ -970,8 +971,7 @@ int dbd_bind_ph (SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
 		}
 		break;
 
-	    case SQLTEXT:
-	    case SQLBINARY: {
+	    case SQLTEXT: {
 		auto	char	*s;
 
 		dbg (3, "TEXT: ");
@@ -983,6 +983,25 @@ int dbd_bind_ph (SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
 		    SET SQL DESCRIPTOR :i_sql_nm
 		    VALUE :fix
 			DATA      = :fdB,
+			INDICATOR = 0;
+		dbg (3, "    After set,      sqlcode = %d\n", SQLCODE);
+		unless (sqlError (dbh))
+		    return (0);
+		break;
+		}
+
+	    case SQLBINARY: {
+		auto	char	*s;
+
+		dbg (3, "BINARY: ");
+		s = SvPV (value, l);
+		dbg (3, "(%d) %8X ...", l, s);
+		fdX.curlen  = l;
+		fdX.dataptr = s;
+		EXEC SQL
+		    SET SQL DESCRIPTOR :i_sql_nm
+		    VALUE :fix
+			DATA      = :fdX,
 			INDICATOR = 0;
 		dbg (3, "    After set,      sqlcode = %d\n", SQLCODE);
 		unless (sqlError (dbh))
@@ -1316,8 +1335,7 @@ AV *dbd_st_fetch (SV *sth, imp_sth_t *imp_sth)
 		/*dbg (3, "%ld", SvIV (sv));*/
 		break;
 
-	    case SQLTEXT:
-	    case SQLBINARY: {
+	    case SQLTEXT: {
 		auto	char	*s;
 
 		dbg (3, "TEXT %2d: ", ftp);
@@ -1345,6 +1363,28 @@ AV *dbd_st_fetch (SV *sth, imp_sth_t *imp_sth)
 		    }
 		sv_setpvn (sv, s, i);
 		dbg (3, "(%d) '%s'", i, SvPVX (sv));
+		break;
+		}
+
+	    case SQLBINARY: {
+		auto	char	*s;
+
+		dbg (3, "BINARY %2d: ", ftp);
+		EXEC SQL
+		    GET DESCRIPTOR :o_sql_nm
+		    VALUE :fix
+			  :fdX = DATA;
+		dbg (5, "\r\n    After get,      sqlcode = %d\n", SQLCODE);
+		unless (sqlError (dbh))
+		    return (Nullav);
+		i = fdX.curlen;
+		s = fdX.dataptr;
+		unless (i && s) {
+		    s = "";
+		    i = 0;
+		    }
+		sv_setpvn (sv, s, i);
+		dbg (3, "(%d) %8X ...", i, SvPVX (sv));
 		break;
 		}
 
@@ -1626,8 +1666,8 @@ SV *dbd_st_FETCH_attrib (SV *sth, imp_sth_t *imp_sth, SV *keysv)
 	retsv = newRV (sv_2mortal ((SV *)av));
 	while (--i >= 0)
 	    av_store (av, i, newSViv (imp_sth->fld[i].ftp == 1
-	    				? imp_sth->fld[i].fln
-	    				: imp_sth->fld[i].fpr));
+				    ? imp_sth->fld[i].fln
+				    : imp_sth->fld[i].fpr));
 	}
     else
     if (kl == 5 && strEQ (key, "SCALE")) {

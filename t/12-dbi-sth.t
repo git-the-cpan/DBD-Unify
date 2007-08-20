@@ -15,7 +15,7 @@ my ($schema, $dbh) = ("DBUTIL");
 ok ($dbh = DBI->connect ("dbi:Unify:", "", $schema), "connect");
 
 unless ($dbh) {
-    BAILOUT ("Unable to connect to Unify ($DBI::errstr)\n");
+    BAIL_OUT ("Unable to connect to Unify ($DBI::errstr)\n");
     exit 0;
     }
 

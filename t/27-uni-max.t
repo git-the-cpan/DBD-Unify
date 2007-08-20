@@ -34,7 +34,7 @@ my $dbh;
 ok ($dbh = DBI->connect ("dbi:Unify:"), "connect");
 
 unless ($dbh) {
-    BAILOUT ("Unable to connect to Unify ($DBI::errstr)\n");
+    BAIL_OUT ("Unable to connect to Unify ($DBI::errstr)\n");
     exit 0;
     }
 
@@ -47,6 +47,10 @@ ok ($sts = $dbh->do (join " " => q;
 	xs numeric       (4) not null,
 	xl numeric       (9)
 	);), "do");
+if ($dbh->err) {
+    BAIL_OUT ("Unable to create table ($DBI::errstr)\n");
+    exit 0;
+    }
 ok ($dbh->commit, "commit");
 
 # Now check hitting realloc sth_id with an arbitrary number

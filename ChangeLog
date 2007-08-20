@@ -1,4 +1,13 @@
-*** Release 0.63 - Mon 14 May 2007 <h.m.brand@xs4all.nl>
+*** Release 0.65 - Mon 20 Aug 2007 <h.m.brand@xs4all.nl>
+
+    - perlcritic OK
+    - BAILOUT -> BAIL_OUT
+    - BAIL_OUT () when table creation fails
+    - Segfault fix for failing do () calls (tazervas@earthlink.net)
+    - Split TEXT/BINARY for DS 9 (tazervas@earthlink.net) + test
+    - Added an example to show record count(s)
+
+*** Release 0.64 - Mon 14 May 2007 <h.m.brand@xs4all.nl>
 
     - Tested under DBI-1.56. Make sure to rebuild the DBD
     - Added t/15-uni-fail.t

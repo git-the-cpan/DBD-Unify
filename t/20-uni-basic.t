@@ -28,7 +28,7 @@ ok ($dbh = DBI->connect ($dbname, undef, "", {
 	}), "connect with attributes");
 
 unless ($dbh) {
-    BAILOUT ("Unable to connect to Unify ($DBI::errstr)\n");
+    BAIL_OUT ("Unable to connect to Unify ($DBI::errstr)\n");
     exit 0;
     }
 
@@ -46,6 +46,10 @@ ok ($dbh->do (join " " =>
     "    xd date             ,",
     "    xe huge date         ",
     ")"), "create");
+if ($dbh->err) {
+    BAIL_OUT ("Unable to create table ($DBI::errstr)\n");
+    exit 0;
+    }
 ok ($dbh->commit, "commit");
 
 ok (1, "-- FILL THE TABLE");

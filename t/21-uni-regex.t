@@ -20,7 +20,7 @@ ok ($dbh = DBI->connect ($dbname, undef, "", {
 	}), "connect with attributes");
 
 unless ($dbh) {
-    BAILOUT ("Unable to connect to Unify ($DBI::errstr)\n");
+    BAIL_OUT ("Unable to connect to Unify ($DBI::errstr)\n");
     exit 0;
     }
 

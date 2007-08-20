@@ -83,7 +83,7 @@ use DBI 1.42;
 use DynaLoader ();
 
 use vars qw(@ISA $VERSION);
-$VERSION = "0.64";
+$VERSION = "0.65";
 
 @ISA = qw(DynaLoader);
 bootstrap DBD::Unify $VERSION;
@@ -143,8 +143,7 @@ sub connect
 	});
 
     # Connect to the database..
-    DBD::Unify::db::_login ($dbh, $dbname, $user, $auth)
-	or return undef;
+    DBD::Unify::db::_login ($dbh, $dbname, $user, $auth) or return;
 
     $dbh;
     } # connect
@@ -198,13 +197,12 @@ sub prepare
 #   $sth->STORE ("driver_params" => []);
 #   $sth->STORE ("NUM_OF_PARAMS" => ($statement =~ tr/?//));
 
-    DBD::Unify::st::_prepare ($sth, $statement, @attribs)
-	or return undef;
+    DBD::Unify::st::_prepare ($sth, $statement, @attribs) or return;
 
     $sth;
     } # prepare
 
-sub table_info ($;$$$$)
+sub table_info
 {
     my $dbh = shift;
     my ($catalog, $schema, $table, $type, $attr);
@@ -241,7 +239,7 @@ sub table_info ($;$$$$)
 #            $pk_catalog, $pk_schema, $pk_table,
 #            $fk_catalog, $fk_schema, $fk_table,
 #            \%attr);
-sub foreign_key_info ($$$$$$;$)
+sub foreign_key_info
 {
     my $dbh = shift;
     my ($Pcatalog, $Pschema, $Ptable,
@@ -293,7 +291,7 @@ sub foreign_key_info ($$$$$$;$)
 
 # type = "R" ? references me : references
 # This is to be converted to foreign_key_info
-sub link_info ($;$$$$)
+sub link_info
 {
     my $dbh = shift;
     my ($catalog, $schema, $table, $type, $attr);
