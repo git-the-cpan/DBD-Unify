@@ -1,4 +1,4 @@
-/* Copyright (c) 1999-2007  H.Merijn Brand <h.m.brand@xs4all.nl>
+/* Copyright (c) 1999-2008  H.Merijn Brand <h.m.brand@xs4all.nl>
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Artistic License, as specified in the Perl README file.
@@ -48,7 +48,7 @@ DBISTATE_DECLARE;
 
 static	byte		*sth_id_on;
 static	short		n_sth_id = 4;	/* Start with max 32 $sth's */
-static	int		opt_v = 0;
+static	int		dbd_verbose = 0;
 
 EXEC SQL BEGIN DECLARE SECTION;
 char	u_sql_do[4096];
@@ -85,7 +85,7 @@ va_dcl
 {
     auto	va_list	args;
 
-    if (level > opt_v && level > dbis->debug)
+    if (level > dbd_verbose && level > dbis->debug)
 	return;
 
 #ifdef I_STDARG
@@ -112,6 +112,7 @@ static void NYI (char *func)
 
 void dbd_init (dbistate_t *dbistate)
 {
+    dTHX;
     DBIS = dbistate;
     (void)memset (fnm, 0, sizeof (fnm));
     /* dbis->debug = 9; */
@@ -147,6 +148,7 @@ int dbd_db_login (SV *dbh, imp_dbh_t *imp_dbh,
     EXEC SQL BEGIN DECLARE SECTION;
     char statement[128];
     EXEC SQL END   DECLARE SECTION;
+    dTHX;
     char *opt;
 
     dbg (2, "DBD::Unify::db_login: dbname: %s\n", dbname);
@@ -236,7 +238,7 @@ static void change_offspring (SV *dbh, imp_dbh_t *imp_dbh)
     for (i = 0; i < n; i++) {
 	imp_sth_t *imp_sth = children[i];
 	if (!imp_sth || imp_sth->stat & ST_STAT_OPEN) continue;
-	if (2 > DBIc_TRACE_LEVEL (imp_sth) && 2 > opt_v) {
+	if (2 > DBIc_TRACE_LEVEL (imp_sth) && 2 > dbd_verbose) {
 	    dbg (2, "-- %03d/%03d 0x%08X %02X",
 		i + 1, n, imp_sth, imp_sth ? imp_sth->stat : 0);
 	    if (imp_sth && imp_sth->statement)
@@ -277,6 +279,7 @@ static void dbd_st_growup (imp_dbh_t *imp_dbh, imp_sth_t *imp_sth)
 
 int dbd_db_commit (SV *dbh, imp_dbh_t *imp_dbh)
 {
+    dTHX;
     dbg (2, "DBD::Unify::db_commit\n");
 
     unless (DBIc_ACTIVE (imp_dbh))
@@ -299,6 +302,7 @@ int dbd_db_commit (SV *dbh, imp_dbh_t *imp_dbh)
 
 int dbd_db_rollback (SV *dbh, imp_dbh_t *imp_dbh)
 {
+    dTHX;
     dbg (2, "DBD::Unify::db_rollback\n");
 
     unless (DBIc_ACTIVE (imp_dbh))
@@ -321,6 +325,7 @@ int dbd_db_rollback (SV *dbh, imp_dbh_t *imp_dbh)
 
 int dbd_db_do (SV *dbh, char *statement)
 {
+    dTHX;
     D_imp_dbh (dbh);
 
     dbg (2, "DBD::Unify::db_do (\"%s\")\n", statement);
@@ -346,6 +351,7 @@ int dbd_db_do (SV *dbh, char *statement)
 
 int dbd_db_disconnect (SV *dbh, imp_dbh_t *imp_dbh)
 {
+    dTHX;
     int transaction_active;
 
     dbg (2, "DBD::Unify::db_disconnect\n");
@@ -379,6 +385,7 @@ int dbd_db_disconnect (SV *dbh, imp_dbh_t *imp_dbh)
 
 int dbd_discon_all (SV *drh, imp_drh_t *imp_drh)
 {
+    dTHX;
     if (!dirty && !SvTRUE (perl_get_sv ("DBI::PERL_ENDING", 0))) {
 	sv_setiv (DBIc_ERR (imp_drh), (IV)1);
 	sv_setpv (DBIc_ERRSTR (imp_drh), "disconnect_all not implemented");
@@ -392,6 +399,7 @@ int dbd_discon_all (SV *drh, imp_drh_t *imp_drh)
 
 void dbd_db_destroy (SV *dbh, imp_dbh_t *imp_dbh)
 {
+    dTHX;
     dbg (2, "DBD::Unify::db_destroy\n");
 
     if (DBIc_ACTIVE (imp_dbh))
@@ -405,6 +413,7 @@ void dbd_db_destroy (SV *dbh, imp_dbh_t *imp_dbh)
 
 int dbd_db_STORE_attrib (SV *dbh, imp_dbh_t *imp_dbh, SV *keysv, SV *valuesv)
 {
+    dTHX;
     STRLEN kl;
     char   *key = SvPV (keysv, kl);
     SV     *cachesv = NULL;
@@ -414,11 +423,15 @@ int dbd_db_STORE_attrib (SV *dbh, imp_dbh_t *imp_dbh, SV *keysv, SV *valuesv)
 	return (0);
 
     if (kl == 11 && strEQ (key, "uni_verbose")) {
-	opt_v = SvIV (valuesv);
+	dbd_verbose = SvIV (valuesv);
+	return (TRUE);
+	}
+    if (kl == 11 && strEQ (key, "dbd_verbose")) {	/* Now also in DBD::Oracle :) */
+	dbd_verbose = SvIV (valuesv);
 	return (TRUE);
 	}
     if (kl == 10 && strEQ (key, "DBDverbose")) {	/* Depricated */
-	opt_v = SvIV (valuesv);
+	dbd_verbose = SvIV (valuesv);
 	return (TRUE);
 	}
     if (kl == 10 && strEQ (key, "AutoCommit")) {
@@ -445,6 +458,7 @@ int dbd_db_STORE_attrib (SV *dbh, imp_dbh_t *imp_dbh, SV *keysv, SV *valuesv)
 
 SV *dbd_db_FETCH_attrib (SV *dbh, imp_dbh_t *imp_dbh, SV *keysv)
 {
+    dTHX;
     STRLEN kl;
     char   *key = SvPV (keysv, kl);
     int    i;
@@ -456,11 +470,11 @@ SV *dbd_db_FETCH_attrib (SV *dbh, imp_dbh_t *imp_dbh, SV *keysv)
 	return (0);
 
     if (kl == 11 && strEQ (key, "uni_verbose")) {
-	retsv = newSViv (opt_v);
+	retsv = newSViv (dbd_verbose);
 	return (retsv);
 	}
     if (kl == 10 && strEQ (key, "DBDverbose")) {	/* Depricated */
-	retsv = newSViv (opt_v);
+	retsv = newSViv (dbd_verbose);
 	return (retsv);
 	}
     if (kl == 10 && strEQ (key, "AutoCommit")) {
@@ -534,6 +548,7 @@ static int use_sth_id (SV *dbh, short dbhid, short id)
 
 int dbd_fld_describe (SV *dbh, imp_sth_t *imp_sth, int num_fields)
 {
+    dTHX;
     register	imp_fld_t	*f;
     register	int		i;
 
@@ -581,6 +596,7 @@ int dbd_fld_describe (SV *dbh, imp_sth_t *imp_sth, int num_fields)
 
 int dbd_prm_describe (SV *dbh, imp_sth_t *imp_sth, int num_params)
 {
+    dTHX;
     register	imp_fld_t	*f;
     register	int		i;
 
@@ -627,6 +643,7 @@ int dbd_prm_describe (SV *dbh, imp_sth_t *imp_sth, int num_params)
 int dbd_st_prepare (SV *sth, imp_sth_t *imp_sth, char *statement, SV *attribs)
 /* attribs unused */
 {
+    dTHX;
     SV *dbh = (SV *)DBIc_PARENT_H (imp_sth);
     D_imp_dbh_from_sth;
 
@@ -747,6 +764,7 @@ int dbd_st_prepare (SV *sth, imp_sth_t *imp_sth, char *statement, SV *attribs)
 int dbd_bind_ph (SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
 	IV sql_type, SV *attribs, int is_inout, IV maxlen)
 {
+    dTHX;
     SV	*dbh = (SV *)DBIc_PARENT_H (imp_sth);
     D_imp_dbh_from_sth;
     int	i;
@@ -1057,6 +1075,7 @@ int dbd_bind_ph (SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
 
 int dbd_st_execute (SV *sth, imp_sth_t *imp_sth)
 {
+    dTHX;
     SV *dbh = (SV *)DBIc_PARENT_H (imp_sth);
 
     D_imp_dbh_from_sth;
@@ -1114,6 +1133,7 @@ int dbd_st_execute (SV *sth, imp_sth_t *imp_sth)
 
 AV *dbd_st_fetch (SV *sth, imp_sth_t *imp_sth)
 {
+    dTHX;
     int    num_fields, i;
     AV     *av;
     SV     *dbh = (SV *)DBIc_PARENT_H (imp_sth);
@@ -1437,6 +1457,7 @@ AV *dbd_st_fetch (SV *sth, imp_sth_t *imp_sth)
 
 int dbd_st_rows (SV *sth, imp_sth_t *imp_sth)
 {
+    dTHX;
 
     if (SQLCA_HAS (SQL_NROWS))	/* After insert, delete, update ...	*/
 	return (sqlca.nrows);
@@ -1445,6 +1466,7 @@ int dbd_st_rows (SV *sth, imp_sth_t *imp_sth)
 
 int dbd_st_finish (SV *sth, imp_sth_t *imp_sth)
 {
+    dTHX;
     SV *dbh = (SV *)DBIc_PARENT_H (imp_sth);
 
     D_imp_dbh_from_sth;
@@ -1469,6 +1491,7 @@ int dbd_st_finish (SV *sth, imp_sth_t *imp_sth)
 
 void dbd_st_destroy (SV *sth, imp_sth_t *imp_sth)
 {
+    dTHX;
     SV *dbh = (SV *)DBIc_PARENT_H (imp_sth);
     D_imp_dbh_from_sth;
 
@@ -1575,12 +1598,14 @@ void dbd_st_destroy (SV *sth, imp_sth_t *imp_sth)
 int dbd_st_blob_read (SV *sth, imp_sth_t *imp_sth, int field,
 	long offset, long len, SV *destrv, long destoffset)
 {
+    dTHX;
     NYI ("st_blob_read");
     return (0);
     } /* dbd_st_blob_read */
 
 int dbd_st_STORE_attrib (SV *sth, imp_sth_t *imp_sth, SV *keysv, SV *valuesv)
 {
+    dTHX;
     STRLEN kl;
     char   *key = SvPV (keysv, kl);
     SV     *cachesv = NULL;
@@ -1626,6 +1651,7 @@ static int uni2sql_type (SQLCOLTYPE t)
 
 SV *dbd_st_FETCH_attrib (SV *sth, imp_sth_t *imp_sth, SV *keysv)
 {
+    dTHX;
     STRLEN kl;
     char   *key = SvPV (keysv, kl);
     int    i;

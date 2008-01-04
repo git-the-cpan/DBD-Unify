@@ -1,6 +1,6 @@
 #!/usr/local/bin/perl -w
 
-require 5.004;
+require 5.006;
 
 use strict;
 use Cwd qw( cwd abs_path );
@@ -14,7 +14,7 @@ use DBI::DBD;
 print "\nConfiguring DBD::Unify ...\n\n";
 
 $^O =~ m/^(?: VMS | MsWin32 | cygwin )$/x and
-    die "OS type $^O is not (yet) supported";
+    die "OS type $^O is not (yet) supported\n";
 
 use vars qw($UNIFY $UNITOP $ULIBS $ULDOPTS);
 
@@ -27,7 +27,20 @@ my %wm = (
     AUTHOR        =>   "H.Merijn Brand <h.m.brand\@xs4all.nl>",
     ABSTRACT_FROM =>   "Unify.pm",
 
-    PREREQ_PM     => { DBI      => "1.42",
+    PREREQ_PM     => { # CORE stuff
+		       "Carp"		=> 0.00,
+		       "DynaLoader"	=> 0.00,
+		       # For unstallu.pl
+		       "Config"		=> 0.00,
+		       "Cwd"		=> 0.00,
+		       "File::Find"	=> 0.00,
+		       "File::Copy"	=> 0.00,
+
+		       # Real deps
+		       "DBI"		=> 1.42,
+
+		       # Test deps
+		       "Test::More"	=> 0.00,
 		       },
 
     dist          => { COMPRESS => "gzip -9f",
@@ -76,13 +89,24 @@ if ($rv && <ulib/*.s[lo] >) {
 
 sub CheckUnify
 {
-    exists $ENV{UNIFY}	or die "\$UNIFY not set";
-    exists $ENV{DBPATH}	or die "\$DBPATH not set";
+    unless (exists $ENV{UNIFY}) {
+	print STDERR
+	    "\$UNIFY not set.  This probably means that you either do not have\n",
+	    "Unify products installed on your system, or you did not set up a\n",
+	    "minimal runtime environment to make it work.\n";
+	exit 1;
+	}
+    unless (exists $ENV{DBPATH}) {
+	print STDERR
+	    "\$DBPATH not set.  Even if your UNIFY environment might be set up\n",
+	    "correctly, building and testing will need an available database.\n";
+	exit 1;
+	}
 
     $UNIFY  = abs_path $ENV{UNIFY};
 
-    -d $UNIFY		or die "\$UNIFY is not a valid directory";
-    -d $ENV{DBPATH}	or die "\$DBPATH is not a valid directory";
+    -d $UNIFY		or die "\$UNIFY is not a valid directory\n";
+    -d $ENV{DBPATH}	or die "\$DBPATH is not a valid directory\n";
 
     $UNITOP = abs_path "$UNIFY/..";
     my $cwd = cwd;
