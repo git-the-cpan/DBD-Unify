@@ -1,30 +1,33 @@
---- #YAML:1.0
+--- #YAML:1.4
 name:              DBD-Unify
-version:           0.72
+version:           0.75
 abstract:          DBI driver for Unify database systems
 license:           perl
 author:              
-    - H.Merijn Brand <h.merijn@xs4all.nl>
+    - H.Merijn Brand <h.m.brand@xs4all.nl>
 generated_by:      Author
 distribution_type: module
 provides:
     DBD::Unify:
-        file:      Unify.pm
-        version:   0.72
+        file:      lib/DBD/Unify.pm
+        version:   0.75
 requires:     
     perl:          5.006
     Carp:          0
-    Config:        0
     Cwd:           0
     DBI:           1.42
     DynaLoader:    0
+build_requires:
+    Config:        0
     File::Copy:    0
     File::Find:    0
-build_requires:
     Test::Harness: 0
     Test::More:    0
+recommends:
+    perl:          5.8.8
+    DBI:           1.607
 resources:
     license:       http://dev.perl.org/licenses/
 meta-spec:
-    url:           http://module-build.sourceforge.net/META-spec-v1.3.html
-    version:       1.3
+    version:       1.4
+    url:           http://module-build.sourceforge.net/META-spec-v1.4.html

@@ -1,7 +1,31 @@
+*** Release 0.75 - Tue 23 Sep 2008 <h.m.brand@xs4all.nl>
+
+    - Three-level dbd_verbose and documentation
+    - $ENV{DBD_TRACE} sets $dbh->{dbd_verbose} on/before connect
+    - New tests for $h->trace (...) and $h->{dbd_verbose}
+    - Added type_info_all (), get_info (), and parse_trace_flag ()
+    - Note that identifiers are now quoted
+    - Override quote_identifier () (UNIFY has no CATALOGS)
+    - Accept 2-arg and 3-arg ->do ()
+    - Accept %attr to ->prepare ()
+    - Raised all verbose levels by 1. 1 and 2 are now DBI only
+    - Removed 05-reauth.t
+    - NULLABLE now always 2, as it doesn't work
+    - Implemented CursorName  sth attribute
+    - Implemented ParamValues sth attribute
+    - Implemented ParamTypes  sth attribute
+    - Implemented RowsInCache sth attribute (always 0)
+    - Tested with Unify 6.3AB on HP-UX 10.20 with perl 5.8.8
+    - Tested with Unify 8.2BC on HP-UX 11.00 with perl 5.8.8
+    - Tested with Unify 8.3I  on HP-UX 11.23 with perl 5.10.0
+    - Tested with Unify 8.3K  on AIX 5.2.0.0 with perl 5.8.8
+      Tests will fail on older perls, as the test cases use scalarIO
+
 *** Release 0.72 - Fri 23 Apr 2008 <h.m.brand@xs4all.nl>
 
     - Kindly tell CPAN smokers not to bother when there is no Unify
     - Add a correct(ed) META.yml
+    - Move to EU::MM's prompt () function for the questions
 
 *** Release 0.71 - Fri 04 Jan 2008 <h.m.brand@xs4all.nl>
 

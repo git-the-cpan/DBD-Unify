@@ -10,7 +10,7 @@ use warnings;
 
 package DBD::Unify;
 
-our $VERSION = "0.72";
+our $VERSION = "0.75";
 
 =head1 NAME
 
@@ -30,8 +30,8 @@ DBD::Unify - DBI driver for Unify database systems
 			 });
  $dbh = DBI->connect_cached (...);                   # NYT
  $dbh->do ($statement);
- $dbh->do ($statement, \%attr);                      # NYI
- $dbh->do ($statement, \%attr, @bind);               # NYI
+ $dbh->do ($statement, \%attr);
+ $dbh->do ($statement, \%attr, @bind);
  $dbh->commit;
  $dbh->rollback;
  $dbh->disconnect;
@@ -41,6 +41,7 @@ DBD::Unify - DBI driver for Unify database systems
  $col = $dbh->selectcol_arrayref ($statement);
 
  $sth = $dbh->prepare ($statement);
+ $sth = $dbh->prepare ($statement, \%attr);
  $sth = $dbh->prepare_cached ($statement);           # NYT
  $sth->execute;
  @row = $sth->fetchrow_array;
@@ -133,7 +134,7 @@ sub connect
 
     $user = "" unless defined $user;
     $auth = "" unless defined $auth;
-    
+
     # create a 'blank' dbh
     my $dbh = DBI::_new_dbh ($drh, {
 	Name          => $dbname,
@@ -143,6 +144,12 @@ sub connect
 
     # Connect to the database..
     DBD::Unify::db::_login ($dbh, $dbname, $user, $auth) or return;
+
+#   if ($attr) {
+#	if ($attr->{dbd_verbose}) {
+#	    $dbh->trace ("DBD");
+#	    }
+#	}
 
     $dbh;
     } # connect
@@ -155,11 +162,41 @@ sub data_sources
     "";
     } # data_sources
 
+1;
+
 ####### Database ##############################################################
 
 package DBD::Unify::db;
 
 $DBD::Unify::db::imp_data_size = 0;
+
+sub parse_trace_flag
+{
+    my ($dbh, $name) = @_;
+  # print STDERR "# Flags: $name\n";
+    return 0x7FFFFF00 if $name eq 'DBD';	# $h->trace ("DBD"); -- ALL
+  # return 0x01000000 if $name eq 'select';	# $h->trace ("SQL|select");
+  # return 0x02000000 if $name eq 'update';	# $h->trace ("1|update");
+  # return 0x04000000 if $name eq 'delete';
+  # return 0x08000000 if $name eq 'insert';
+    return $dbh->SUPER::parse_trace_flag ($name);
+    } # parse_trace_flag
+
+sub type_info_all
+{
+    my ($dbh) = @_;
+    require DBD::Unify::TypeInfo;
+    return [ @$DBD::Unify::TypeInfo::type_info_all ];
+    } # type_info_all
+
+sub get_info
+{
+    my ($dbh, $info_type) = @_;
+    require  DBD::Unify::GetInfo;
+    my $v = $DBD::Unify::GetInfo::info{int $info_type};
+    ref $v eq "CODE" and $v = $v->($dbh);
+    return $v;
+    } # get_info
 
 sub ping
 {
@@ -167,15 +204,6 @@ sub ping
     $dbh->prepare ("select ORD from SYS.ORD") or return 0;
     return 1;
     } # ping
-
-sub do
-{
-    my ($dbh, $statement, $attribs, @params) = @_;
-    # Next two might use base class: DBD::_::do (@_);
-    Carp::carp "DBD::Unify::\$dbh->do () attribs unused\n" if $attribs;
-    Carp::carp "DBD::Unify::\$dbh->do () params unused\n"  if @params;
-    DBD::Unify::db::_do ($dbh, $statement);
-    } # do
 
 sub prepare
 {
@@ -234,6 +262,12 @@ sub table_info
     $sth;
     } # table_info
 
+sub quote_identifier
+{
+    my ($dbh, @arg) = map { defined $_ && $_ ne "" ? $_ : undef } @_;
+    return $dbh->SUPER::quote_identifier (@arg);
+    } # quote_identifier
+
 # $sth = $dbh->foreign_key_info (
 #            $pk_catalog, $pk_schema, $pk_table,
 #            $fk_catalog, $fk_schema, $fk_table,
@@ -272,7 +306,7 @@ sub foreign_key_info
 	}
     $sth->finish;
     $sth = undef;
-    
+
     DBI->connect ("dbi:Sponge:", "", "", { RaiseError => 1 })->prepare (
 	"select link_info $where", {
 	    rows => \@fki,
@@ -411,7 +445,7 @@ local database
 It is recommended that the C<connect> call ends with the attributes
 S<{ AutoCommit => 0 }>, although it is not implemented (yet).
 
-If you dont want to check for errors after B<every> call use 
+If you don't want to check for errors after B<every> call use
 S<{ AutoCommit => 0, RaiseError => 1 }> instead. This will C<die> with
 an error message if any DBI call fails.
 
@@ -437,7 +471,7 @@ explicit:
 or implicit:
 
  {   my $dbh = DBI->connect (...);
-     {   my $sth = $dbh->prepare ("...");
+     {   my $sth = $dbh->prepare (...);
          while (my @data = $sth->fetchrow_array) {
              :
              }
@@ -485,9 +519,19 @@ There is no way for Unify to tell what data sources might be available.
 There is no central files (like /etc/oratab for Oracle) that lists all
 available sources, so this method will always return an empty list.
 
-=item do
+=item quote_identifier
 
-=item prepare
+As DBI's C<quote_identifier ()> gladly accepts the empty string as a
+valid identifier, I have to override this method to translate empty
+strings to undef, so the method behaves properly. Unify does not allow
+to select C<NULL> as a constant as in:
+
+    select NULL, foo from bar;
+
+=item prepare ($statement [, \%attr])
+
+The only attribute currently supported is the C<dbd_verbose> (or its
+alias C<uni_verbose>) level. See "trace" below.
 
 =item table_info ($;$$$$)
 
@@ -505,21 +549,40 @@ available sources, so this method will always return an empty list.
 
 =item trace
 
-The C<DBI-E<gt>trace (level)> call will promote the level to DBD-Unify, showing
-both the DBI layer debugging messages as well as the DBD-Unify debug messages.
+The C<DBI-E<gt>trace (level)> call will promote the level to DBD::Unify,
+showing both the DBI layer debugging messages as well as the DBD::Unify
+specific driver-side debug messages.
+
 It is however also possible to trace B<only> the DBD-Unify without the
-C<DBI-E<gt>trace ()> call by using the C<uni_verbose> attribute on C<connect ()>.
+C<DBI-E<gt>trace ()> call by using the C<uni_verbose> attribute on C<connect ()>
+or by setting it later to the database handle, the default level is set from
+the environment variable C<$DBD_TRACE> if defined:
+
+  $dbh = DBI->connect ("DBI::Unify", "", "", { uni_verbose => 3 });
+  $dbh->{uni_verbose} = 3;
+
+As DBD::Oracle also supports this scheme since version 1.22, C<dbd_verbose>
+is a portable alias for C<uni_verbose>, which is also supported in DBD::Oracle.
+
+DBD::Unify now also allows an even finer grained debugging, by allowing
+C<dbd_verbose> on statement handles too. The default C<dbd_verbose> for
+statement handles is the global C<dbd_verbose> at creation time of the
+statement handle.
+
+  $dbh->{dbd_verbose} = 4;
+  $sth = $dbh->prepare ("select * from foo");  # sth's dbd_verbose = 4
+  $dbh->{dbd_verbose} = 3;                     # sth's dbd_verbose = 4
+  $sth->{dbd_verbose} = 5;                     # now 5
+
 Currently, the following levels are defined:
 
 =over 2
 
-=item 1
+=item 1 & 2
 
-No messages implemented (yet) at level 1
+No DBD messages implemented at level 1 and 2, as they are reserved for DBI
 
-=item 2
-
-Level 1 plus main method entry and exit points:
+=item 3
 
   DBD::Unify::dbd_db_STORE (ScanLevel = 7)
   DBD::Unify::st_prepare u_sql_00_000000 ("select * from foo")
@@ -532,9 +595,9 @@ Level 1 plus main method entry and exit points:
   DBD::Unify::db_disconnect
   DBD::Unify::db_destroy
 
-=item 3
+=item 4
 
-Level 2 plus errors and additional return codes and field types and values:
+Level 3 plus errors and additional return codes and field types and values:
 
   DBD::Unify::st_prepare u_sql_00_000000 ("select c_bar from foo where c_foo = 1")
       After allocate, sqlcode = 0
@@ -559,9 +622,9 @@ Level 2 plus errors and additional return codes and field types and values:
       After deallocO, sqlcode = 0
       After deallocU, sqlcode = 0
 
-=item 4
+=item 5
 
-Level 3 plus some content info:
+Level 4 plus some content info:
 
   DBD::Unify::st_fetch u_sql_00_000000
       Fetched         sqlcode = 0, fields = 1
@@ -569,27 +632,27 @@ Level 3 plus some content info:
        Field   1: [05 00 04 00 00] c_bar: NUMERIC  4: (6030) 6030 ==
        Fetch done
 
-=item 5
+=item 6
 
-Level 4 plus internal coding for exchanges and low(er) level return codes:
+Level 5 plus internal coding for exchanges and low(er) level return codes:
 
   DBD::Unify::fld_describe o_sql_00_000000 (1 fields)
       After get,      sqlcode = 0
        Field   1: [05 00 04 00 FFFFFFFF] c_bar
   DBD::Unify::st_prepare u_sql_00_000000 (<= 1, => 0)
 
-=item 6
+=item 7
 
-Level 5 plus destroy/cleanup states:
+Level 6 plus destroy/cleanup states:
 
   DBD::Unify::st_free u_sql_00_000000
    destroy allocc destroy alloco    After deallocO, sqlcode = 0
    destroy alloci destroy allocp    After deallocU, sqlcode = 0
    destroy stat destroy growup destroy impset
 
-=item 7
+=item 8
 
-No messages (yet) set to level 7 and up.
+No messages (yet) set to level 8 and up.
 
 =back
 
@@ -663,6 +726,6 @@ H.Merijn Brand, <h.m.brand@xs4all.nl> developed the DBD::Unify extension.
 Copyright (C) 1999-2008 H.Merijn Brand
 
 This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself. 
+it under the same terms as Perl itself.
 
 =cut
