@@ -1,4 +1,4 @@
-#   Copyright (c) 1999-2008 H.Merijn Brand
+#   Copyright (c) 1999-2009 H.Merijn Brand
 #
 #   You may distribute under the terms of either the GNU General Public
 #   License or the Artistic License, as specified in the Perl README file.
@@ -10,7 +10,7 @@ use warnings;
 
 package DBD::Unify;
 
-our $VERSION = "0.76";
+our $VERSION = "0.77";
 
 =head1 NAME
 
@@ -305,7 +305,7 @@ sub foreign_key_info
 	    ];
 	}
     $sth->finish;
-    $sth = undef;
+    undef $sth;
 
     DBI->connect ("dbi:Sponge:", "", "", { RaiseError => 1 })->prepare (
 	"select link_info $where", {
@@ -569,6 +569,9 @@ C<dbd_verbose> on statement handles too. The default C<dbd_verbose> for
 statement handles is the global C<dbd_verbose> at creation time of the
 statement handle.
 
+The environment variable C<DBD_VERBOSE> is used if defined and overrules
+C<$DBD_TRACE>.
+
   $dbh->{dbd_verbose} = 4;
   $sth = $dbh->prepare ("select * from foo");  # sth's dbd_verbose = 4
   $dbh->{dbd_verbose} = 3;                     # sth's dbd_verbose = 4
@@ -702,9 +705,44 @@ No messages (yet) set to level 8 and up.
 
 =back
 
-=head1 NOTES
+=head1 TODO
 
-Far from complete ...
+As this module is probably far from complete, so will the TODO list most
+likely will be far from complete. More generic (test) items are mentioned
+in the README in the module distribution.
+
+=over 4
+
+=item Handle attributes
+
+Check if all documented handle (database- and statement-) attributes are
+supported and work as expected.
+
+  local $dbh->{RaiseError}       = 0;
+  local $sth->{FetchHashKeyName} = "NAME";
+
+=item Statement attributes
+
+Allow setting and getting stement attributes. A specific example might be
+
+  $sth->{PrintError}       = 0;
+  $sth->{FetchHashKeyName} = "NAME_uc";
+
+=item 3-arg bind_param ()
+
+Investigate and implement 3-arg versions of $sth->bind_param ()
+
+=item looks_as_number ()
+
+Investigate if looks_as_number () should be used in st_bind ().
+Comments are in where it should.
+
+=item Multiple open databases
+
+Try finding a way to open several different Unify databases at the
+same time for parallel (or at least sequential) processing.
+
+=back
 
 =head1 SEE ALSO
 
@@ -716,14 +754,15 @@ comp.lang.perl.modules newsgroup and the dbi-users mailing list
 
 =head1 AUTHORS
 
-DBI/DBD was developed by Tim Bunce, <Tim.Bunce@ig.co.uk>, who also
-developed the DBD::Oracle.
+DBI/DBD was developed by Tim Bunce, who also developed the DBD::Oracle.
 
-H.Merijn Brand, <h.m.brand@xs4all.nl> developed the DBD::Unify extension.
+H.Merijn Brand developed the DBD::Unify extension.
+
+Todd Zervas has given a lot of feedback and patches.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 1999-2008 H.Merijn Brand
+Copyright (C) 1999-2009 H.Merijn Brand
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

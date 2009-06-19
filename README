@@ -13,7 +13,7 @@ REQUIREMENTS
     but this does not mean it might not work on U2000 databases or other
     DataServer releases. I do not (yet) have a DS 9.x to play with.
 
-    I use DBI 1.607 and perl-5.8.8 or perl5.10.0, but might get it to work
+    I use DBI 1.609 and perl-5.8.8 or perl5.10.0, but might get it to work
     with DBI 0.93 or higher and perl 5.005 (expect problems installing
     Test::More) or higher. But then again, in that case you should consider
     an upgrade. As of DBD-Unify-0.40 I've made DBI-1.42 prerequisite. As of
@@ -46,7 +46,11 @@ REQUIREMENTS
     One user has reported success with perl 5.005_03 on SunOS 5.7 with
     gcc-2.7.2.2, DBI-1.30, DBD-Unify-0.24 with DataServer-7.2.
 
-    tazervas reported 0.65 working on 9.0G on Linux 2.4.21-47.EL
+    Todd Zervas reported working versions:
+    - 0.65 working on 32bit 9.0G on Linux 2.4.21-47.EL
+    - 0.76 working on 32bit 9.0G on Linux 2.6.18-92.1.22.el5PAE
+    - 0.77 working on 32bit 9.0G on Linux 2.6.18-128.1.14.el5PAE
+                    with GNU g++ 4.1.2, perl-5.8.8, and DBI-1.609
 
 BUILDING, TESTING AND INSTALLING:
 
@@ -117,6 +121,19 @@ BUILDING, TESTING AND INSTALLING:
 
     As with all modules: Patches are welcome.
 
+SOURCE CODE
+
+    Recent changes can be (re)viewed in the public GIT repository at
+    http://repo.or.cz/w/DBD-Unify.git
+    Feel free to clone your own copy:
+
+     $ git clone http://repo.or.cz/r/DBD-Unify.git DBD-Unify
+
+    or get it as a tgz:
+
+     $ wget --output-document=DBD-Unify.tgz \
+               'http://repo.or.cz/w/DBD-Unify.git?a=snapshot;sf=tgz'
+
 SHARED BUILDS on HP-UX
 
     As of somewhere in the DataServer 8.2 track, Unify has finally indulged
@@ -184,29 +201,17 @@ RESTRICTIONS:
       bug report 22960. DBD-Unify 0.25 and up have a workaround for all
       versions up to and including 8.2AD. It's fixed in 8.2B.
 
-TO DO:
+TODO:
+
+    See module documentation for specific TODO items
 
     # Remove as many restrictions as possible
-
     # Add more tests
-
-    # Implement all implementable remaining handle attributes
-
-    # Investigate and implement 3-arg versions of $sth->bind_param ()
-
-    # Investigate if looks_as_number () should be used in st_bind ().
-      Comments are in where it should.
-
     # Investigate if LIKE and SHLIKE operators in positional parameters
       indeed do not work (I've seen that, but found no time yet to look
       into this more). Currently it cores on SHLIKE. See t/21-uni-regex.t
-
-    # Try finding a way to open several different Unify databases at the
-      same time for parallel (or at least sequential) processing.
-
     # Try finding ways to increase performance, squeezing every last
       nanosecond out of each handle
-
     # If you're into Unify internals, try finding out why describing
       positional parameters in where clauses (not in selected fields)
       causes a core dump on the field name. Look in dbdimp.ic in function
@@ -218,12 +223,12 @@ ACKNOWLEDGEMENTS
     the speed in the early development and help in adding the missing
     features in the earlier stages of this DBD interface.
 
-    Thanks to tazervas@earthlink.net for digging in the binary issues
-    on DS 9.0.
+    Thanks to Todd Zervas <tazervas@earthlink.net> for digging in the
+    binary issues on DS 9.0.
 
 COPYRIGHT AND LICENSE
 
-    Copyright (C) 1999-2008  H.Merijn Brand <h.m.brand@xs4all.nl>
+    Copyright (C) 1999-2009  H.Merijn Brand <h.m.brand@xs4all.nl>
 
     This library is free software; you can redistribute it and/or modify
     it under the same terms as Perl itself. 
