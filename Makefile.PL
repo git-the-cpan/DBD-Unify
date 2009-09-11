@@ -77,9 +77,11 @@ my %wm = (
 		       EPPOPT => "",
 		       CC     => ($^O eq "aix" ? "env UPPNAME='cc -E' " : "")
 		       			. "$UNITOP/bin/ucc",
+		       SELINUXENABLED => "/usr/sbin/selinuxenabled",
 		       },
     );
-$ExtUtils::MakeMaker::VERSION > 6.30	and $wm{LICENSE} = "perl";
+my $eummv = eval $ExtUtils::MakeMaker::VERSION;
+$eummv > 6.30				and $wm{LICENSE} = "perl";
 $Config{myarchname} eq "ia64-hpux"	and delete $wm{macro}{CC};
 
 my $rv = WriteMakefile (%wm);
@@ -259,6 +261,12 @@ sub postamble
 	'	-@mv -f $(DISTVNAME).tar.gz $(DISTVNAME).tgz',
 	'	-@cpants_lint.pl $(DISTVNAME).tgz',
 	'	-@rm -f Debian_CPANTS.txt',
+	'',
+	'linkext::',
+	'	if [ -x $(SELINUXENABLED) ] && $(SELINUXENABLED); then chcon -t textrel_shlib_t $(INST_ARCHLIB)/auto/$(FULLEXT)/$(DLBASE).so; fi',
+	'',
+	'install::',
+	'	if [ -x $(SELINUXENABLED) ] && $(SELINUXENABLED); then chcon -t textrel_shlib_t $(INSTALLSITEARCH)/auto/$(FULLEXT)/$(DLBASE).so; fi',
 	'';
     } # postamble
 

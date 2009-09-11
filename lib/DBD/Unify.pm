@@ -10,7 +10,7 @@ use warnings;
 
 package DBD::Unify;
 
-our $VERSION = "0.77";
+our $VERSION = "0.78";
 
 =head1 NAME
 
@@ -201,7 +201,7 @@ sub get_info
 sub ping
 {
     my $dbh = shift;
-    $dbh->prepare ("select ORD from SYS.ORD") or return 0;
+    $dbh->prepare ("select USER_NAME from SYS.DATABASE_USERS") or return 0;
     return 1;
     } # ping
 
@@ -229,6 +229,12 @@ sub prepare
     $sth;
     } # prepare
 
+sub _is_or_like
+{
+    my ($fld, $val) = @_;
+    $val =~ m/[_%]/ ? "$fld like '$val'" : "$fld = '$val'";
+    } # _is_or_like
+
 sub table_info
 {
     my $dbh = shift;
@@ -246,11 +252,12 @@ sub table_info
 	    Carp::carp "Unify does not support catalogs in table_info\n";
 	return;
 	}
+
     my @where;
-    $schema and push @where, "OWNR       like '$schema'";
-    $table  and push @where, "TABLE_NAME like '$table'";
+    $schema and push @where, _is_or_like ("OWNR",       $schema);
+    $table  and push @where, _is_or_like ("TABLE_NAME", $table);
     $type   and $type = uc substr $type, 0, 1;
-    $type   and push @where, "TABLE_TYPE like '$type'";
+    $type   and push @where, _is_or_like ("TABLE_TYPE", $type);
     local $" = " and ";
     my $where = @where ? " where @where" : "";
     my $sth = $dbh->prepare (
@@ -258,9 +265,48 @@ sub table_info
 	"from   SYS.ACCESSIBLE_TABLES ".
 	$where);
     $sth or return;
+    $sth->{ChopBlanks} = 1;
     $sth->execute;
     $sth;
     } # table_info
+
+my $info_cache;
+
+sub primary_key
+{
+    my $dbh = shift;
+    my ($catalog, $schema, $table) = @_;
+    if ($catalog) {
+	$dbh->{Warn} and
+	    Carp::carp "Unify does not support catalogs in table_info\n";
+	return;
+	}
+
+    unless ($info_cache) {
+	my $sth = $dbh->prepare (
+	    "select COLUMN_NAME, PRIMRY, OWNR, TABLE_NAME ".
+	    "from   SYS.ACCESSIBLE_COLUMNS") or return;
+	$sth->{ChopBlanks} = 1;
+	$sth->execute or return;
+
+	$sth->bind_columns (\my ($fld, $key, $sch, $tbl));
+	while ($sth->fetch) {
+	    $key eq "Y" or next;
+	    push @{$info_cache->{key}{$sch}{$tbl}}, $fld;
+	    }
+	}
+    $info_cache && $info_cache->{key} or return;
+
+    my @key;
+    foreach my $sch (sort keys %{$info_cache->{key}}) {
+	defined $schema && $sch ne $schema and next;
+	foreach my $tbl (sort keys %{$info_cache->{key}{$sch}}) {
+	    defined $table && $tbl ne $table and next;
+	    push @key, @{$info_cache->{key}{$sch}{$tbl}};
+	    }
+	}
+    return @key;
+    } # primary_key
 
 sub quote_identifier
 {
@@ -293,7 +339,8 @@ sub foreign_key_info
 	"from   SYS.LINK_INDEXES",
 	$where);
     $sth or return;
-    $sth->execute;
+    $sth->{ChopBlanks} = 1;
+    $sth->execute or return;
     my @fki;
     while (my @sli = $sth->fetchrow_array) {
 	push @fki, [
@@ -307,7 +354,10 @@ sub foreign_key_info
     $sth->finish;
     undef $sth;
 
-    DBI->connect ("dbi:Sponge:", "", "", { RaiseError => 1 })->prepare (
+    DBI->connect ("dbi:Sponge:", "", "", {
+	    RaiseError => 1,
+	    ChopBlanks => 1,
+	    })->prepare (
 	"select link_info $where", {
 	    rows => \@fki,
 	    NAME => [qw(
@@ -355,6 +405,7 @@ sub link_info
 	"from   SYS.LINK_INDEXES",
 	$where);
     $sth or return;
+    $sth->{ChopBlanks} = 1;
     $sth->execute;
     $sth;
     } # link_info
@@ -538,6 +589,17 @@ alias C<uni_verbose>) level. See "trace" below.
 =item foreign_key_info ($$$$$$;$)
 
 =item link_info ($;$$$$)
+
+=item primary_key ($$$)
+
+Note that these four get their info by accessing the C<SYS> schema which
+is relatively extremely slow. e.g. Getting all the primary keys might well
+run into seconds, rather than milli-seconds.
+
+This is work-in-progress, and we hope to find faster ways to get to this
+information. Also note that in order to keep it fast accross multiple calls,
+the information is cached, so when you alter the data dictionary after a
+call to one of these, that cached information is not updated.
 
 =item ping
 

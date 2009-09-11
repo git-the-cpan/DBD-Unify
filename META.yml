@@ -1,6 +1,6 @@
 --- #YAML:1.1
 name:                    DBD-Unify
-version:                 0.77
+version:                 0.78
 abstract:                DBI driver for Unify database systems
 license:                 perl
 author:              
@@ -10,7 +10,7 @@ distribution_type:       module
 provides:
     DBD::Unify:
         file:            lib/DBD/Unify.pm
-        version:         0.77
+        version:         0.78
     DBD::Unify::GetInfo:
         file:            lib/DBD/Unify/GetInfo.pm
         version:         0.10
