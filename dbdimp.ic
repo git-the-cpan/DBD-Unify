@@ -1,4 +1,4 @@
-/* Copyright (c) 1999-2009  H.Merijn Brand <h.m.brand@xs4all.nl>
+/* Copyright (c) 1999-2010  H.Merijn Brand <h.m.brand@xs4all.nl>
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Artistic License, as specified in the Perl README file.
@@ -43,6 +43,9 @@ DBISTATE_DECLARE;
 
 #include <sqle_usr.h>
 #include <dbtypes.h>
+#ifndef SQLCURRENCY
+#  define SQLCURRENCY	-18
+#  endif
 
 extern char *basename (const char *path);
 
@@ -389,7 +392,7 @@ int dbd_db_commit (SV *dbh, imp_dbh_t *imp_dbh)
     /* Check for commit () being called whilst refs to cursors
      * still exists. This needs some more thought.
      */
-    if (DBIc_ACTIVE_KIDS (imp_dbh) && DBIc_WARN (imp_dbh) && !dirty) {
+    if (DBIc_ACTIVE_KIDS (imp_dbh) && DBIc_WARN (imp_dbh) && !PL_dirty) {
 	warn ("DBD::Unify::db_commit (%s) invalidates %d active cursor(s)",
 	    SvPV_nolen (dbh), (int)DBIc_ACTIVE_KIDS (imp_dbh));
 	}
@@ -412,7 +415,7 @@ int dbd_db_rollback (SV *dbh, imp_dbh_t *imp_dbh)
     /* Check for rollback () being called whilst refs to cursors
      * still exists. See dbd_db_commit ()
      */
-    if (DBIc_ACTIVE_KIDS (imp_dbh) && DBIc_WARN (imp_dbh) && !dirty) {
+    if (DBIc_ACTIVE_KIDS (imp_dbh) && DBIc_WARN (imp_dbh) && !PL_dirty) {
 	warn ("DBD::Unify::db_rollback (%s) invalidates %d active cursor(s)",
 	    SvPV_nolen (dbh), (int)DBIc_ACTIVE_KIDS (imp_dbh));
 	}
@@ -465,7 +468,7 @@ int dbd_db_disconnect (SV *dbh, imp_dbh_t *imp_dbh)
 	imp_dbh->nchildren = 0;
 	}
 
-    if (DBIc_ACTIVE_KIDS (imp_dbh) && DBIc_WARN (imp_dbh) && !dirty) {
+    if (DBIc_ACTIVE_KIDS (imp_dbh) && DBIc_WARN (imp_dbh) && !PL_dirty) {
 	warn ("DBD::Unify::db_disconnect (%s) invalidates %d active cursor(s)",
 	    SvPV_nolen (dbh), (int)DBIc_ACTIVE_KIDS (imp_dbh));
 	}
@@ -485,14 +488,14 @@ int dbd_db_disconnect (SV *dbh, imp_dbh_t *imp_dbh)
 int dbd_discon_all (SV *drh, imp_drh_t *imp_drh)
 {
     dTHX;
-    if (!dirty && !SvTRUE (perl_get_sv ("DBI::PERL_ENDING", 0))) {
+    if (!PL_dirty && !SvTRUE (perl_get_sv ("DBI::PERL_ENDING", 0))) {
 	sv_setiv (DBIc_ERR (imp_drh), (IV)1);
 	sv_setpv (DBIc_ERRSTR (imp_drh), "disconnect_all not implemented");
 	DBIh_EVENT2 (drh, ERROR_event, DBIc_ERR (imp_drh), DBIc_ERRSTR (imp_drh));
 	return (FALSE);
 	}
-    if (perl_destruct_level)
-	perl_destruct_level = 0;
+    if (PL_perl_destruct_level)
+	PL_perl_destruct_level = 0;
     return (FALSE);
     } /* dbd_discon_all */
 
@@ -523,11 +526,6 @@ int dbd_db_STORE_attrib (SV *dbh, imp_dbh_t *imp_dbh, SV *keysv, SV *valuesv)
 
     if (kl == 11 && (strEQ (key, "uni_verbose") || strEQ (key, "dbd_verbose"))) {
 	dbd_verbose = SvIV (valuesv); /* dbd_verbose in DBD::Oracle since 1.22 :) */
-	dbg (2, "Set DBD_VERBOSE = %d\n", dbd_verbose);
-	return (TRUE);
-	}
-    if (kl == 10 && strEQ (key, "DBDverbose")) {	/* Depricated */
-	dbd_verbose = SvIV (valuesv);
 	dbg (2, "Set DBD_VERBOSE = %d\n", dbd_verbose);
 	return (TRUE);
 	}
@@ -563,8 +561,6 @@ SV *dbd_db_FETCH_attrib (SV *dbh, imp_dbh_t *imp_dbh, SV *keysv)
 	return (NULL);
 
     if (kl == 11 && (strEQ (key, "uni_verbose") || strEQ (key, "dbd_verbose")))
-	return (newSViv (dbd_verbose));
-    if (kl == 10 && strEQ (key, "DBDverbose"))	/* Depricated */
 	return (newSViv (dbd_verbose));
     if (kl == 10 && strEQ (key, "AutoCommit"))
 	return (newSVsv (boolSV (0)));
@@ -666,6 +662,10 @@ int dbd_fld_describe (SV *dbh, imp_sth_t *imp_sth, int num_fields)
 	    i--;
 	fnm[i] = (char)0;
 	(void)strncpy (f->fnm, fnm, sizeof (fnm));
+
+	if (ftp == SQLNUMERIC && fln > 0 && fln <= 4)
+	    ftp = SQLSMINT;
+
 	f->ftp = ftp;
 	f->fln = fln;
 	f->fpr = fpr;
@@ -713,6 +713,10 @@ int dbd_prm_describe (SV *dbh, imp_sth_t *imp_sth, int num_params)
 	    i--;
 	fnm[i] = (char)0;
 	(void)strncpy (f->fnm, fnm, sizeof (fnm));
+
+	if (ftp == SQLNUMERIC && fln > 0 && fln <= 4)
+	    ftp = SQLSMINT;
+
 	f->ftp = ftp;
 	f->fln = fln;
 	f->fpr = fpr;
@@ -959,6 +963,7 @@ int dbd_bind_ph (SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
 		    return (0);
 		break;
 
+	    case SQLCURRENCY:
 	    case SQLREAL:
 	    case SQLDBLPREC:
 		st_dbg (4, imp_sth, "DOUBL %1d.%2d: ", fln, fpr);
@@ -1047,7 +1052,7 @@ int dbd_bind_ph (SV *sth, imp_sth_t *imp_sth, SV *param, SV *value,
 		    croak ("DBD::Unify::st_bind: atold (): bad date: %s", s);
 		if (fdHDT & 0xFFFF0000)
 		    croak ("DBD::Unify::st_bind: atold (): short date overflow: %s", s);
-		fdDT = (short)fdHDT;
+		fdDT = (UTP_DATE)fdHDT;
 		/*fdDT = (short)SvIV (value);*/
 		st_dbg (4, imp_sth, "atold (): (%d) '%s' => %8d", strlen (s), s, fdDT);
 
@@ -1353,7 +1358,8 @@ AV *dbd_st_fetch (SV *sth, imp_sth_t *imp_sth)
 		st_dbg (4, imp_sth, "%lf", SvNV (sv));
 		break;
 
-	    case SQLREAL:		/* fpr = 32	*/
+	    case SQLCURRENCY:
+	    case SQLREAL:	/* fpr = 32	*/
 	    case SQLDBLPREC:	/* fpr = 64	*/
 		st_dbg (4, imp_sth, "DOUBL %1d.%2d: ", fln, fpr);
 		EXEC SQL
@@ -1432,7 +1438,7 @@ AV *dbd_st_fetch (SV *sth, imp_sth_t *imp_sth)
 		unless (sqlError (sth))
 		    return (NULL);
 		st_dbg (4, imp_sth, "(%d) ", fdDT);
-		if (ldtoa ((UINT32)fdDT, fdC))
+		if (ldtoa ((UTP_HDTE)fdDT, fdC))
 		    croak ("DBD::Unify::st_fetch: ldtoa (%d) failed", fdDT);
 		sv_setpvn (sv, fdC, strlen (fdC));
 		st_dbg (4, imp_sth, "(%d) '%s'", strlen (fdC), SvPVX (sv));
@@ -1724,12 +1730,16 @@ int dbd_st_STORE_attrib (SV *sth, imp_sth_t *imp_sth, SV *keysv, SV *valuesv)
     return (FALSE); /* no values to store */
     } /* dbd_st_STORE_attrib */
 
-static int uni2sql_type (SQLCOLTYPE t)
+int uni2sql_type (SQLCOLTYPE t)
 {
+    /* see also perl5/site_perl/5.10.1/x86_64-linux/auto/DBI/dbi_sql.h
+     * and $UNIFY/../include/sqle_usr.h */
     switch (t) {      /*      ANSI/ODBC  Column type       DBI               */
+	case SQLNOTYPE:  return ( 0); /* -                                   */
 	case SQLCHAR:    return ( 1); /* character, char   SQL_CHAR          */
 	case SQLNUMERIC: return ( 2); /* numeric           SQL_NUMERIC       */
 	case SQLDECIMAL: return ( 3); /* decimal, dec      SQL_DECIMAL       */
+	case SQLCURRENCY:return ( 3); /* currency          SQL_DECIMAL       */
 	case SQLINTEGER: return ( 4); /* integer, int      SQL_INTEGER       */
 	case SQLSMINT:   return ( 5); /* smallint          SQL_SMALLINT      */
 	case SQLFLOAT:   return ( 6); /* float             SQL_FLOAT         */
@@ -1748,10 +1758,11 @@ static int uni2sql_type (SQLCOLTYPE t)
 	case SQLBINARY:  return (-3); /* binary            SQL_VARBINARY     */
 		      /*         -4                        SQL_LONGVARBINARY */
 	case SQLINT64:   return (-5); /* huge integer      SQL_BIGINT        */
-	}             /*         -6                        SQL_TINYINT       */
+		      /*         -6                        SQL_TINYINT       */
 	              /*         -7                        SQL_BIT           */
+	}
     dbg (4, "No ANSI support for type %d\n", t);
-    /* No support for
+    /* No (official) support for
      * -18 SQLAMT64  CURRENCY, GIANT AMOUNTS
      * -17 SQLINT64  HUGE INTEGER (on 32bit systems)
      */
@@ -1794,7 +1805,7 @@ SV *dbd_st_FETCH_attrib (SV *sth, imp_sth_t *imp_sth, SV *keysv)
 	    av_store (av, i, newSViv (uni2sql_type (imp_sth->fld[i].ftp)));
 	}
     else
-    if (kl == 9 && strEQ (key, "uni_types")) {
+    if (kl == 8 && strEQ (key, "uni_type")) {
 	AV *av = newAV ();
 	retsv  = newRV (sv_2mortal ((SV *)av));
 	while (--i >= 0)

@@ -1,4 +1,4 @@
-#   Copyright (c) 1999-2009 H.Merijn Brand
+#   Copyright (c) 1999-2010 H.Merijn Brand
 #
 #   You may distribute under the terms of either the GNU General Public
 #   License or the Artistic License, as specified in the Perl README file.
@@ -10,7 +10,7 @@ use warnings;
 
 package DBD::Unify;
 
-our $VERSION = "0.78";
+our $VERSION = "0.80";
 
 =head1 NAME
 
@@ -92,7 +92,7 @@ use vars qw($err $errstr $state $drh);
 $err    = 0;		# holds error code   for DBI::err
 $errstr = "";		# holds error string for DBI::errstr
 $state  = "";		# holds SQL state    for DBI::state
-$drh    = undef;	# holds driver handle once initialised
+$drh    = undef;	# holds driver handle once initialized
 
 sub driver
 {
@@ -198,6 +198,15 @@ sub get_info
     return $v;
     } # get_info
 
+sub private_attribute_info
+{
+    return { 
+	dbd_verbose	=> undef,
+
+	uni_verbose	=> undef,
+	};
+    } # private_attribute_info
+
 sub ping
 {
     my $dbh = shift;
@@ -269,6 +278,99 @@ sub table_info
     $sth->execute;
     $sth;
     } # table_info
+
+sub column_info
+{
+    my $dbh = shift;
+    my ($catalog, $schema, $table, $column);
+    ref $_[0] or ($catalog, $schema, $table, $column) = splice @_, 0, 4;
+    if ($catalog) {
+	$dbh->{Warn} and
+	    Carp::carp "Unify does not support catalogs in column_info\n";
+	return;
+	}
+    my @where;
+    $schema and push @where, "OWNR        like '$schema'";
+    $table  and push @where, "TABLE_NAME  like '$table'";
+    $column and push @where, "COLUMN_NAME like '$column'";
+    local $" = " and ";
+    my $where = @where ? " where @where" : "";
+    my $sth = $dbh->prepare (
+	"select OWNR, TABLE_NAME, COLUMN_NAME, DATA_TYPE, DATA_LENGTH, DATA_SCALE, DISPLAY_LENGTH, DISPLAY_SCALE, NULLABLE, RDNLY, PRIMRY, UNIQ, LOGGED, ORDERED ".
+	"from   SYS.ACCESSIBLE_COLUMNS ".
+	$where);
+    $sth or return;
+    $sth->execute;
+    my @fki;
+    require DBD::Unify::TypeInfo;
+    while (my @sli = $sth->fetchrow_array) {
+	my $uni_type_name = $sli[3];
+	   $uni_type_name =~ s/^CHARACTER$/CHAR/;
+	   $uni_type_name =~ s/^DOUBLE$/DOUBLE PRECISION/;
+	my $uni_type = DBD::Unify::TypeInfo::uni_type ($uni_type_name);
+	my $odbc_type = (
+	    $uni_type_name eq "NUMERIC" && $sli[4] <= 4 ? 5 : # SMALLINT
+	    DBD::Unify::_uni2sql_type ($uni_type) ) || 0;
+	push @fki, [
+	    # TABLE_CAT, TABLE_SCHEM, TABLE_NAME, COLUMN_NAME,
+	    undef, @sli[0..2],
+	    # DATA_TYPE, TYPE_NAME,
+	    $odbc_type, DBD::Unify::TypeInfo::odbc_type ($odbc_type),
+	    # COLUMN_SIZE, BUFFER_LENGTH, DECIMAL_DIGITS, NUM_PREC_RADIX,
+	    $sli[4], undef, $sli[5], undef,
+	    # NULLABLE,
+	    $sli[8] eq "N" ? 0 : $sli[8] eq "Y" ? 1 : 2,
+	    # REMARKS, COLUMN_DEF, SQL_DATA_TYPE, SQL_DATETIME_SUB,
+	    undef, undef, undef, undef,
+	    # CHAR_OCTET_LENGTH, ORDINAL_POSITION, IS_NULLABLE
+	    undef, undef, undef,
+
+	    # CHAR_SET_CAT, CHAR_SET_SCHEM, CHAR_SET_NAME, COLLATION_CAT,
+	    # COLLATION_SCHEM, COLLATION_NAME, UDT_CAT, UDT_SCHEM, UDT_NAME,
+	    # DOMAIN_CAT, DOMAIN_SCHEM, DOMAIN_NAME, SCOPE_CAT, SCOPE_SCHEM,
+	    # SCOPE_NAME, MAX_CARDINALITY, DTD_IDENTIFIER, IS_SELF_REF,
+	    undef, undef, undef, undef, undef, undef, undef, undef, undef,
+	    undef, undef, undef, undef, undef, undef, undef, undef, undef,
+
+	    # uni_type, uni_type_name
+	    $uni_type, $uni_type_name,
+
+	    # uni_display_length, uni_display_scale, uni_rdonly, uni_primry,
+	    # uni_uniq, uni_logged, uni_ordered
+	    @sli[6,7,9..13],
+	    ];
+	}
+    $sth->finish;
+    $sth = undef;
+
+    my @col_name = qw(
+	TABLE_CAT TABLE_SCHEM TABLE_NAME
+	COLUMN_NAME DATA_TYPE TYPE_NAME COLUMN_SIZE BUFFER_LENGTH
+	DECIMAL_DIGITS NUM_PREC_RADIX NULLABLE
+
+	REMARKS COLUMN_DEF SQL_DATA_TYPE SQL_DATETIME_SUB CHAR_OCTET_LENGTH
+	ORDINAL_POSITION IS_NULLABLE
+
+	CHAR_SET_CAT CHAR_SET_SCHEM CHAR_SET_NAME COLLATION_CAT COLLATION_SCHEM
+        COLLATION_NAME UDT_CAT UDT_SCHEM UDT_NAME DOMAIN_CAT DOMAIN_SCHEM
+        DOMAIN_NAME SCOPE_CAT SCOPE_SCHEM SCOPE_NAME MAX_CARDINALITY
+        DTD_IDENTIFIER IS_SELF_REF
+
+	uni_type uni_type_name
+
+	uni_display_length uni_display_scale uni_rdonly uni_primry
+	uni_uniq uni_logged uni_ordered
+	);
+    DBI->connect ("dbi:Sponge:", "", "", {
+	RaiseError       => $sth->{RaiseError},
+	PrintError       => $sth->{PrintError},
+	ChopBlanks       => 1,
+	FetchHashKeyName => $sth->{FetchHashKeyName} || "NAME",
+	})->prepare ("select column_info $where", {
+	    rows => \@fki,
+	    NAME => \@col_name,
+	    });
+    } # column_info
 
 my $info_cache;
 
@@ -354,21 +456,22 @@ sub foreign_key_info
     $sth->finish;
     undef $sth;
 
-    DBI->connect ("dbi:Sponge:", "", "", {
-	    RaiseError => 1,
-	    ChopBlanks => 1,
-	    })->prepare (
-	"select link_info $where", {
-	    rows => \@fki,
-	    NAME => [qw(
-		uk_table_cat uk_table_schem uk_table_name uk_column_name
-		fk_table_cat fk_table_schem fk_table_name fk_column_name
-		ordinal_position
+    my @col_name = qw(
+	UK_TABLE_CAT UK_TABLE_SCHEM UK_TABLE_NAME UK_COLUMN_NAME
+	FK_TABLE_CAT FK_TABLE_SCHEM FK_TABLE_NAME FK_COLUMN_NAME
+	ORDINAL_POSITION
 
-		update_rule delete_rule
-		fk_name uk_name
-		deferability unique_or_primary
-		)],
+	UPDATE_RULE DELETE_RULE
+	FK_NAME UK_NAME
+	DEFERABILITY UNIQUE_OR_PRIMARY );
+    DBI->connect ("dbi:Sponge:", "", "", {
+	RaiseError       => $sth->{RaiseError},
+	PrintError       => $sth->{PrintError},
+	ChopBlanks       => 1,
+	FetchHashKeyName => $sth->{FetchHashKeyName} || "NAME",
+	})->prepare ("select link_info $where", {
+	    rows => \@fki,
+	    NAME => \@col_name,
 	    });
     } # foreign_key_info
 
@@ -418,6 +521,13 @@ sub link_info
 
 package DBD::Unify::st;
 
+sub private_attribute_info
+{
+    return { 
+	uni_type	=> undef,
+	};
+    } # private_attribute_info
+
 1;
 
 ####### End ###################################################################
@@ -425,8 +535,8 @@ package DBD::Unify::st;
 =head1 DESCRIPTION
 
 DBD::Unify is an extension to Perl which allows access to Unify
-databases. It is built on top of the standard DBI extension an
-implements the methods that DBI require.
+databases. It is built on top of the standard DBI extension and
+implements the methods that DBI requires.
 
 This document describes the differences between the "generic" DBD
 and DBD::Unify.
@@ -460,14 +570,14 @@ Unify represents midnight with 00:00, not 24:00.
 
     connect ("DBI:Unify:dbname[;options]" [, user [, auth [, attr]]]);
 
-Options to the connection are passed in the datasource
+Options to the connection are passed in the data-source
 argument. This argument should contain the database
 name possibly followed by a semicolon and the database options
 which are ignored.
 
 Since Unify database authorization is done using grant's using the
-user name, the I<user> argument me be empty or undef. The auth
-field will be used as a default schema. If the auth field is empty
+user name, the I<user> argument may be empty or undef. The I<auth>
+field will be used as a default schema. If the I<auth> field is empty
 or undefined connect will check for the environment variable $USCHEMA
 to use as a default schema. If neither exists, you will end up in your
 default schema, or if none is assigned, in the schema PUBLIC.
@@ -586,20 +696,60 @@ alias C<uni_verbose>) level. See "trace" below.
 
 =item table_info ($;$$$$)
 
+=item columne_info ($$$$)
+
 =item foreign_key_info ($$$$$$;$)
 
 =item link_info ($;$$$$)
 
 =item primary_key ($$$)
 
-Note that these four get their info by accessing the C<SYS> schema which
+Note that these five get their info by accessing the C<SYS> schema which
 is relatively extremely slow. e.g. Getting all the primary keys might well
-run into seconds, rather than milli-seconds.
+run into seconds, rather than milliseconds.
 
 This is work-in-progress, and we hope to find faster ways to get to this
-information. Also note that in order to keep it fast accross multiple calls,
-the information is cached, so when you alter the data dictionary after a
+information. Also note that in order to keep it fast across multiple calls,
+some information is cached, so when you alter the data dictionary after a
 call to one of these, that cached information is not updated.
+
+For C<column_info ()>, the returned C<DATA_TYPE> is deduced from the
+C<TYPE_NAME> returned from C<SYS.ACCESSIBLE_COLUMNS>. The type is in
+the ODBC range and the original Unify type and type_name are returned
+in the additional fields C<uni_type> and C<uni_type_name>. Somehow
+selecting from that table does not return valid statement handles for
+types C<currency> and C<huge integer>.
+
+  Create as           sth attributes       uni_type/uni_type_name
+  ------------------- -------------------  -------------------------
+  amount              FLOAT             6   -4 AMOUNT (9, 2)
+  amount (5, 2)       FLOAT             6   -4 AMOUNT (5, 2)
+  huge amount         REAL              7   -6 HUGE AMOUNT (15, 2)
+  huge amount (5, 2)  REAL              7   -6 HUGE AMOUNT (5, 2)
+  huge amount (15, 2) REAL              7   -6 HUGE AMOUNT (15, 2)
+  byte                BINARY           -2  -12 BYTE (1)
+  byte (512)          BINARY           -2  -12 BYTE (512)
+  char                CHAR              1    1 CHAR (1)
+  char (12)           CHAR              1    1 CHAR (12)
+  currency            DECIMAL           3    - ?
+  currency (9)        DECIMAL           3    - ?
+  currency (7,2)      DECIMAL           3    - ?
+  date                DATE              9   -3 DATE
+  huge date           TIMESTAMP        11  -11 HUGE DATE
+  decimal             NUMERIC           2    2 NUMERIC (9)
+  decimal (2)         NUMERIC           2    2 NUMERIC (2)
+  decimal (8)         NUMERIC           2    2 NUMERIC (8)
+  double precision    DOUBLE PRECISION  8    8 DOUBLE PRECISION (64)
+  float               DOUBLE PRECISION  8    6 FLOAT (64)
+  huge integer        HUGE INTEGER     -5    - ?
+  integer             NUMERIC           2    2 NUMERIC (9)
+  numeric             NUMERIC           2    2 NUMERIC (9)
+  numeric (2)         SMALLINT          5    2 NUMERIC (2)
+  numeric (6)         NUMERIC           2    2 NUMERIC (6)
+  real                REAL              7    7 REAL (32)
+  smallint            SMALLINT          5    2 NUMERIC (4)
+  text                TEXT             -1   -9 TEXT
+  time                TIME             10   -7 TIME
 
 =item ping
 
@@ -785,14 +935,14 @@ supported and work as expected.
 
 =item Statement attributes
 
-Allow setting and getting stement attributes. A specific example might be
+Allow setting and getting statement attributes. A specific example might be
 
   $sth->{PrintError}       = 0;
   $sth->{FetchHashKeyName} = "NAME_uc";
 
-=item 3-arg bind_param ()
+=item 3-argument bind_param ()
 
-Investigate and implement 3-arg versions of $sth->bind_param ()
+Investigate and implement 3-argument versions of $sth->bind_param ()
 
 =item looks_as_number ()
 
@@ -824,7 +974,7 @@ Todd Zervas has given a lot of feedback and patches.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 1999-2009 H.Merijn Brand
+Copyright (C) 1999-2010 H.Merijn Brand
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
