@@ -1,4 +1,4 @@
-#   Copyright (c) 1999-2010 H.Merijn Brand
+#   Copyright (c) 1999-2012 H.Merijn Brand
 #
 #   You may distribute under the terms of either the GNU General Public
 #   License or the Artistic License, as specified in the Perl README file.
@@ -10,7 +10,7 @@ use warnings;
 
 package DBD::Unify;
 
-our $VERSION = "0.80";
+our $VERSION = "0.82";
 
 =head1 NAME
 
@@ -23,11 +23,12 @@ DBD::Unify - DBI driver for Unify database systems
  # man DBI for explanation of each method (there's more than listed here)
 
  $dbh = DBI->connect ("DBI:Unify:[\$dbname]", "", $schema, {
-			 AutoCommit    => 0,
-			 ChopBlanks    => 1,
-			 uni_verbose   => 0,
-			 uni_scanlevel => 2,
-			 });
+                         AutoCommit    => 0,
+                         ChopBlanks    => 1,
+                         uni_unicode   => 0,
+                         uni_verbose   => 0,
+                         uni_scanlevel => 2,
+                         });
  $dbh = DBI->connect_cached (...);                   # NYT
  $dbh->do ($statement);
  $dbh->do ($statement, \%attr);
@@ -174,11 +175,11 @@ sub parse_trace_flag
 {
     my ($dbh, $name) = @_;
   # print STDERR "# Flags: $name\n";
-    return 0x7FFFFF00 if $name eq 'DBD';	# $h->trace ("DBD"); -- ALL
-  # return 0x01000000 if $name eq 'select';	# $h->trace ("SQL|select");
-  # return 0x02000000 if $name eq 'update';	# $h->trace ("1|update");
-  # return 0x04000000 if $name eq 'delete';
-  # return 0x08000000 if $name eq 'insert';
+    return 0x7FFFFF00 if $name eq "DBD";	# $h->trace ("DBD"); -- ALL
+  # return 0x01000000 if $name eq "select";	# $h->trace ("SQL|select");
+  # return 0x02000000 if $name eq "update";	# $h->trace ("1|update");
+  # return 0x04000000 if $name eq "delete";
+  # return 0x08000000 if $name eq "insert";
     return $dbh->SUPER::parse_trace_flag ($name);
     } # parse_trace_flag
 
@@ -204,6 +205,7 @@ sub private_attribute_info
 	dbd_verbose	=> undef,
 
 	uni_verbose	=> undef,
+	uni_unicode	=> undef,
 	};
     } # private_attribute_info
 
@@ -610,6 +612,20 @@ If you don't want to check for errors after B<every> call use
 S<{ AutoCommit => 0, RaiseError => 1 }> instead. This will C<die> with
 an error message if any DBI call fails.
 
+=item Unicode
+
+By default, this driver is completely Unicode unaware: what you put into
+the database will be returned to you without the encoding applied.
+
+To enable automatic decoding of UTF-8 when fetching from the database,
+set the C<uni_unicode> attribute to a true value for the database handle
+(statement handles will inherit) or to the statement handle.
+
+  $dbh->{uni_unicode} = 1;
+
+When CHAR or TEXT fields are retrieved and the content fetched is valid
+UTF-8, the value will be marked as such.
+
 =item re-connect
 
 Though both the syntax and the module support connecting to different
@@ -974,7 +990,7 @@ Todd Zervas has given a lot of feedback and patches.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 1999-2010 H.Merijn Brand
+Copyright (C) 1999-2012 H.Merijn Brand
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

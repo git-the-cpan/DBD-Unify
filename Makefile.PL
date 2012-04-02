@@ -1,6 +1,6 @@
 #!/usr/local/bin/perl -w
 
-require 5.006;
+require 5.008004;
 
 use strict;
 
@@ -34,19 +34,19 @@ my %wm = (
     ABSTRACT_FROM =>   "lib/DBD/Unify.pm",
 
     PREREQ_PM     => { # CORE stuff
-		       "Carp"		=> 0.00,
-		       "DynaLoader"	=> 0.00,
+		       "Carp"		=> 0,
+		       "DynaLoader"	=> 0,
 		       # For unstallu.pl
-		       "Config"		=> 0.00,
-		       "Cwd"		=> 0.00,
-		       "File::Find"	=> 0.00,
-		       "File::Copy"	=> 0.00,
+		       "Config"		=> 0,
+		       "Cwd"		=> 0,
+		       "File::Find"	=> 0,
+		       "File::Copy"	=> 0,
 
 		       # Real deps
 		       "DBI"		=> 1.42,
 
 		       # Test deps
-		       "Test::More"	=> 0.00,
+		       "Test::More"	=> 0.90,
 		       },
 
     dist          => { COMPRESS => "gzip -9f",
@@ -208,15 +208,15 @@ sub CheckUnify
 	my $f = shift;
 	-r "$UNITOP/$f" && -s _ && (-x _ || $f !~ m/^bin/) and return;
 	die "I can't find $f\n".
-	    "Is your Unify set up correctly??\n";
+	    "Is your Unify ($UNITOP) set up correctly??\n";
 	} # Check
     Check ("bin/SQL");
     Check ("bin/EPP");
     if ($try_shared) {
-	map { Check ("lib/lib${_}.$dlext") } @ulibs;
+	Check ("lib/lib${_}.$dlext") for @ulibs;
 	}
     else {
-	map { Check ($_) } split m/ u/ => $ULIBS;
+	Check ($_) for split m/ u/ => $ULIBS;
 	}
 
     splice @sqlv, -2, 2;
@@ -254,6 +254,7 @@ sub postamble
 	'	pod-spell-check --aspell',
 	'',
 	'checkmeta:	spellcheck',
+	'	perl sandbox/genPPPort_h.pl',
 	'	perl sandbox/genMETA.pl -c',
 	'',
 	'fixmeta:	distmeta',
