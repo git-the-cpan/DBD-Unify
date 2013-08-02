@@ -15,13 +15,6 @@
 #include <rhli.h>
 #include <rhlierr.h>
 
-#ifndef SQLDATETIME
-#define SQLDATETIME 0xDEADBEAF
-#endif
-#ifndef UDL_DATETIME
-#define UDL_DATETIME 0xDEADBEAF
-#endif
-
 typedef	unsigned char	byte;
 
 /* Unify API calls used */
@@ -48,7 +41,11 @@ USTATUS	SQLCODE;
 
 typedef struct imp_fld_st imp_fld_t;
 
-static	short	n_dbh = 0;
+#ifndef UEXTERN
+#  define UEXTERN
+#  define UINIT0
+#  endif
+UEXTERN	short	n_dbh UINIT0;
 
 struct imp_drh_st {
     dbih_drc_t	com;		/* MUST be first element in structure	*/
