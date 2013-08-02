@@ -1,29 +1,45 @@
----
-abstract: 'DBI driver for Unify database systems'
-author:
-  - 'H.Merijn Brand <h.m.brand@xs4all.nl>'
-build_requires:
-  ExtUtils::MakeMaker: 0
-configure_requires:
-  ExtUtils::MakeMaker: 0
-dynamic_config: 1
-generated_by: 'ExtUtils::MakeMaker version 6.66, CPAN::Meta::Converter version 2.131490'
-license: perl
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: 1.4
-name: DBD-Unify
-no_index:
-  directory:
-    - t
-    - inc
-requires:
-  Carp: 0
+--- 
+abstract: DBI driver for Unify database systems
+author: 
+  - H.Merijn Brand <h.m.brand@xs4all.nl>
+build_requires: 
   Config: 0
-  Cwd: 0
-  DBI: 1.42
-  DynaLoader: 0
   File::Copy: 0
   File::Find: 0
-  Test::More: 0.9
-version: 0.84
+configure_requires: 
+  Config: 0
+  Cwd: 0
+  DBI::DBD: 0
+  ExtUtils::MakeMaker: 0
+dynamic_config: 1
+generated_by: Author, CPAN::Meta::Converter version 2.131490
+license: perl
+meta-spec: 
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: '1.4'
+name: DBD-Unify
+provides: 
+  DBD::Unify: 
+    file: lib/DBD/Unify.pm
+    version: '0.85'
+  DBD::Unify::GetInfo: 
+    file: lib/DBD/Unify/GetInfo.pm
+    version: '0.85'
+  DBD::Unify::TypeInfo: 
+    file: lib/DBD/Unify/TypeInfo.pm
+    version: '0.85'
+recommends: 
+  DBI: '1.628'
+  Test::More: '0.98'
+  perl: '5.016003'
+requires: 
+  Carp: 0
+  DBI: '1.42'
+  DynaLoader: 0
+  Test::Harness: 0
+  Test::More: '0.90'
+  perl: '5.008004'
+resources: 
+  license: http://dev.perl.org/licenses/
+  repository: http://repo.or.cz/r/DBD-Unify.git
+version: '0.85'
