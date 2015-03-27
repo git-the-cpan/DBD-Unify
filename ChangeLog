@@ -1,3 +1,8 @@
+0.87    - 27 Mar 2015, H.Merijn Brand
+    * primary_key to return correct info for composite keys
+    * Move project to github
+    * Fetching DOUBLE, FLOAT and AMOUNT now returns a NV instead of PV
+
 0.86    - 02 Jan 2015, H.Merijn Brand
     * Correct handling of very small and very large numbers (Todd Zervas)
     * Up copyright to 2014

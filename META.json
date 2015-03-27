@@ -1,8 +1,8 @@
 {
    "resources" : {
       "repository" : {
-         "web" : "http://repo.or.cz/w/DBD-Unify.git",
-         "url" : "http://repo.or.cz/r/DBD-Unify.git",
+         "web" : "https://github.com/perl5-dbi/DBD-Unify",
+         "url" : "https://github.com/perl5-dbi/DBD-Unify",
          "type" : "git"
       },
       "license" : [
@@ -14,7 +14,7 @@
       "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec"
    },
    "generated_by" : "Author",
-   "version" : "0.86",
+   "version" : "0.87",
    "name" : "DBD-Unify",
    "author" : [
       "H.Merijn Brand <h.m.brand@xs4all.nl>"
@@ -42,7 +42,7 @@
          },
          "recommends" : {
             "perl" : "5.020001",
-            "DBI" : "1.632"
+            "DBI" : "1.633"
          }
       },
       "configure" : {
@@ -63,15 +63,15 @@
    },
    "provides" : {
       "DBD::Unify::GetInfo" : {
-         "version" : "0.86",
+         "version" : "0.87",
          "file" : "lib/DBD/Unify/GetInfo.pm"
       },
       "DBD::Unify" : {
-         "version" : "0.86",
+         "version" : "0.87",
          "file" : "lib/DBD/Unify.pm"
       },
       "DBD::Unify::TypeInfo" : {
-         "version" : "0.86",
+         "version" : "0.87",
          "file" : "lib/DBD/Unify/TypeInfo.pm"
       }
    },

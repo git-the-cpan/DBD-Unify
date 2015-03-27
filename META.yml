@@ -21,15 +21,15 @@ name: DBD-Unify
 provides: 
   DBD::Unify: 
     file: lib/DBD/Unify.pm
-    version: '0.86'
+    version: '0.87'
   DBD::Unify::GetInfo: 
     file: lib/DBD/Unify/GetInfo.pm
-    version: '0.86'
+    version: '0.87'
   DBD::Unify::TypeInfo: 
     file: lib/DBD/Unify/TypeInfo.pm
-    version: '0.86'
+    version: '0.87'
 recommends: 
-  DBI: '1.632'
+  DBI: '1.633'
   Test::More: '1.001014'
   perl: '5.020001'
 requires: 
@@ -41,5 +41,5 @@ requires:
   perl: '5.008004'
 resources: 
   license: http://dev.perl.org/licenses/
-  repository: http://repo.or.cz/r/DBD-Unify.git
-version: '0.86'
+  repository: https://github.com/perl5-dbi/DBD-Unify
+version: '0.87'
